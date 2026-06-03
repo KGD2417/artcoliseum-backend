@@ -1,0 +1,37 @@
+"""User credentials + Profile (role, artist status, contact details)."""
+import uuid
+
+from sqlalchemy import String, Boolean, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from ..database import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    email: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+
+    profile: Mapped["Profile"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+
+
+class Profile(Base):
+    __tablename__ = "profiles"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    full_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    phone: Mapped[str | None] = mapped_column(String, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # role: user | artist | admin
+    role: Mapped[str] = mapped_column(String, default="user", nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # artist_status: none | unverified | verified
+    artist_status: Mapped[str] = mapped_column(String, default="none", nullable=False)
+
+    user: Mapped["User"] = relationship(back_populates="profile")
