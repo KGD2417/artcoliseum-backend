@@ -28,11 +28,12 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Art Coliseum API", version="0.1.0")
 
-_origins = [o.strip() for o in settings.FRONTEND_ORIGIN.split(",") if o.strip()]
+_origins_raw = [o.strip() for o in settings.FRONTEND_ORIGIN.split(",") if o.strip()]
+_wildcard = "*" in _origins_raw
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins,
-    allow_credentials=True,
+    allow_origins=["*"] if _wildcard else _origins_raw,
+    allow_credentials=not _wildcard,
     allow_methods=["*"],
     allow_headers=["*"],
 )
