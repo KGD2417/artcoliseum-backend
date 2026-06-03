@@ -64,6 +64,8 @@ def health():
     return {"status": "ok"}
 
 
+print("WEBSOCKET ROUTE REGISTERED")
+
 @app.websocket("/ws/chat")
 async def ws_chat(websocket: WebSocket, token: str = ""):
     """Live chat socket. Auth via ?token=<access JWT>."""
