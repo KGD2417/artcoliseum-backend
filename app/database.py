@@ -8,7 +8,17 @@ from sqlalchemy.dialects.postgresql import UUID
 
 from .config import settings
 
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+
+def _normalise_db_url(url: str) -> str:
+    """Railway injects postgres:// or postgresql:// — rewrite to the psycopg3 scheme."""
+    if url.startswith("postgres://"):
+        url = "postgresql+psycopg://" + url[len("postgres://"):]
+    elif url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
+engine = create_engine(_normalise_db_url(settings.DATABASE_URL), pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
