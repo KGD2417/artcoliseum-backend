@@ -84,21 +84,20 @@ def update_me(body: dict, db: Session = Depends(get_db), user: User = Depends(ge
             prof.phone = body["phone"]
         if "avatar_url" in body and body["avatar_url"] is not None:
             prof.avatar_url = body["avatar_url"]
+        if "addresses" in body and isinstance(body["addresses"], list):
+            # Replace the saved address book; keep only well-formed dict entries.
+            prof.addresses = [a for a in body["addresses"] if isinstance(a, dict)]
         db.commit()
         db.refresh(user)
-    return MeOut(
-        user=UserOut(id=user.id, email=user.email),
-        role=prof.role if prof else "user",
-        artist_status=prof.artist_status if prof else "none",
-        full_name=prof.full_name if prof else None,
-        phone=prof.phone if prof else None,
-        avatar_url=prof.avatar_url if prof else None,
-    )
+    return _me_out(user, prof)
 
 
 @router.get("/me", response_model=MeOut)
 def me(user: User = Depends(get_current_user)):
-    prof = user.profile
+    return _me_out(user, user.profile)
+
+
+def _me_out(user: User, prof) -> MeOut:
     return MeOut(
         user=UserOut(id=user.id, email=user.email),
         role=prof.role if prof else "user",
@@ -106,4 +105,5 @@ def me(user: User = Depends(get_current_user)):
         full_name=prof.full_name if prof else None,
         phone=prof.phone if prof else None,
         avatar_url=prof.avatar_url if prof else None,
+        addresses=(prof.addresses or []) if prof else [],
     )

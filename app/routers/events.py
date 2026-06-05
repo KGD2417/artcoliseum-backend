@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..deps import get_optional_user, require_role
+from ..deps import get_optional_user, get_current_user, require_role
 from ..models.user import User
 from ..models.site import Event, EventRegistration
 from ..schemas.extra import EventOut, EventRegistrationIn
@@ -17,6 +17,17 @@ router = APIRouter(prefix="/events", tags=["events"])
 @router.get("", response_model=list[EventOut])
 def list_events(db: Session = Depends(get_db)):
     return list(db.scalars(select(Event).order_by(Event.starts_at)).all())
+
+
+@router.get("/registrations/mine", response_model=list[EventOut])
+def my_registrations(db: Session = Depends(get_db), me: User = Depends(get_current_user)):
+    """The events the signed-in user has registered for (for their dashboard)."""
+    ev_ids = db.scalars(
+        select(EventRegistration.event_id).where(EventRegistration.user_id == me.id)
+    ).all()
+    if not ev_ids:
+        return []
+    return list(db.scalars(select(Event).where(Event.id.in_(ev_ids)).order_by(Event.starts_at)).all())
 
 
 @router.post("", response_model=EventOut, status_code=201)
@@ -55,6 +66,16 @@ def delete_event(event_id: uuid.UUID, db: Session = Depends(get_db), _admin: Use
 def register(event_id: uuid.UUID, body: EventRegistrationIn, db: Session = Depends(get_db), me: User | None = Depends(get_optional_user)):
     if not db.get(Event, event_id):
         raise HTTPException(status_code=404, detail="Event not found")
+    # Don't let a signed-in user register for the same event twice.
+    if me:
+        existing = db.scalar(
+            select(EventRegistration).where(
+                EventRegistration.event_id == event_id,
+                EventRegistration.user_id == me.id,
+            )
+        )
+        if existing:
+            return {"ok": True, "already_registered": True}
     db.add(EventRegistration(
         event_id=event_id, user_id=(me.id if me else None),
         name=body.name, email=body.email, phone=body.phone, message=body.message,

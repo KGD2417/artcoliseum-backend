@@ -31,6 +31,7 @@ class MeOut(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     avatar_url: str | None = None
+    addresses: list | None = None
 
 
 class TokenOut(BaseModel):

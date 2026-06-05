@@ -46,13 +46,24 @@ def create_order(body: OrderCreateIn, db: Session = Depends(get_db), me: User = 
     tax = pricing.gst(subtotal)
     # Zone delivery fee only applies when something is actually shipped.
     needs_transport = any(i.fulfillment != "self_pickup" for i in items)
-    pincode = body.pincode or (body.shipping_address or {}).get("zip")
+    has_pickup = any(i.fulfillment == "self_pickup" for i in items)
+
+    addr = dict(body.shipping_address or {})
+    # A shipped order needs a real destination address; pure self-pickup does not.
+    if needs_transport and not all(addr.get(k) for k in ("line1", "city", "zip")):
+        raise HTTPException(status_code=400, detail="A delivery address (line 1, city and PIN) is required for shipped items")
+    # Stash pickup scheduling on the order's JSON (no dedicated column needed).
+    if has_pickup:
+        addr["pickup_date"] = body.pickup_date
+        addr["pickup_slot"] = body.pickup_slot
+
+    pincode = body.pincode or addr.get("zip")
     delivery_fee = pricing.delivery_estimate(pincode)["delivery_fee"] if needs_transport else 0.0
     total = subtotal + transport + setup + tax + delivery_fee
 
     order = Order(
         user_id=me.id, email=me.email, full_name=body.full_name, phone=body.phone,
-        shipping_address=body.shipping_address, subtotal=subtotal, tax=tax,
+        shipping_address=addr, subtotal=subtotal, tax=tax,
         delivery_fee=delivery_fee, total=total,
         status="pending", payment_provider=body.payment_provider, breakdown=[],
     )

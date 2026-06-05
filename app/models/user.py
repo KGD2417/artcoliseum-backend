@@ -2,6 +2,7 @@
 import uuid
 
 from sqlalchemy import String, Boolean, ForeignKey
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
@@ -27,6 +28,8 @@ class Profile(Base):
     full_name: Mapped[str | None] = mapped_column(String, nullable=True)
     phone: Mapped[str | None] = mapped_column(String, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Saved delivery address book: [{id,label,name,phone,line1,line2,city,state,zip,country,is_default}]
+    addresses: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     # role: user | artist | admin
     role: Mapped[str] = mapped_column(String, default="user", nullable=False)

@@ -110,9 +110,11 @@ class CartBreakdownOut(BaseModel):
 class OrderCreateIn(BaseModel):
     full_name: str
     phone: str
-    shipping_address: dict
+    shipping_address: dict = {}   # may be empty for pure self-pickup orders
     payment_provider: str = "razorpay"
     pincode: str | None = None   # falls back to shipping_address["zip"]
+    pickup_date: str | None = None   # ISO date — self-pickup
+    pickup_slot: str | None = None   # e.g. "11:00–13:00"
 
 
 class OrderItemOut(BaseModel):
