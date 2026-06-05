@@ -11,9 +11,10 @@ def _f(v):
 # ── Enquiries ────────────────────────────────────────────────────────────────
 class EnquiryCreateIn(BaseModel):
     artwork_id: str
-    # The buyer's customization choices, used to auto-compute the price.
-    options: dict | None = None          # {size, frame, finish, palette}
-    wall_upcharge: float = 0             # % from the wall-fit calculator
+    options: dict | None = None          # {frame, finish, palette}
+    custom_width:  float | None = None   # buyer's desired artwork width
+    custom_height: float | None = None   # buyer's desired artwork height
+    custom_unit:   str = "cm"            # cm | inch | feet
     size_id: uuid.UUID | None = None
 
 

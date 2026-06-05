@@ -55,14 +55,20 @@ def delivery_estimate(pincode: str | None) -> dict:
         "serviceable": digit is not None,
     }
 
-# Customization upcharges (percent). Mirrors UPCHARGES in ProductDetail.jsx so the
-# price the customer sees and the price the server stores always agree.
+# Global default customisation upcharges (percent). Per-artwork overrides are stored
+# in Artwork.frame_options / finish_options / palette_options (JSONB).
+# Size is no longer a dropdown — pricing uses explicit W×H dimensions instead.
 UPCHARGES = {
-    "size":    {"Standard": 0, "Small (50%)": -20, "Large (150%)": 30, "Custom": 50},
     "frame":   {"No frame": 0, "Simple Wood": 8, "Hand-finished Walnut": 18, "Museum Grade UV Glass": 28, "Custom Gilded": 45},
     "finish":  {"Satin varnish": 0, "Matte": 0, "High gloss": 5, "Unvarnished": 0},
     "palette": {"As created": 0, "Warmer tones": 10, "Cooler tones": 10, "Monochrome": 15, "Custom": 20},
 }
+
+_TO_CM: dict[str, float] = {"cm": 1.0, "inch": 2.54, "inches": 2.54, "feet": 30.48}
+
+
+def _to_cm(value: float, unit: str) -> float:
+    return value * _TO_CM.get((unit or "cm").lower(), 1.0)
 
 
 def _area_from_dimensions(base_dimensions: str | None) -> float | None:
@@ -78,27 +84,49 @@ def _area_from_dimensions(base_dimensions: str | None) -> float | None:
     return None
 
 
-def compute_custom_price(artwork, *, options: dict | None = None, wall_upcharge: float = 0.0) -> float:
+def compute_custom_price(
+    artwork,
+    *,
+    options: dict | None = None,
+    custom_width: float | None = None,
+    custom_height: float | None = None,
+    custom_unit: str = "cm",
+) -> float:
     """Authoritative price for a customizable artwork.
 
-    base = price_per_unit × face area (if set) else the artwork's display price,
-    then size/frame/finish/palette + wall upcharges are applied.
+    When the buyer provides explicit dimensions (custom_width × custom_height),
+    base = price_per_unit × area in the artwork's native unit.
+    Falls back to the artwork's display price when no dimensions given.
+    Frame / finish / palette upcharges are applied on top.
     """
     options = options or {}
-    base = float(artwork.price or 0)
     ppu = float(artwork.price_per_unit) if artwork.price_per_unit is not None else None
-    if (base <= 0) and ppu:
-        area = _area_from_dimensions(artwork.base_dimensions)
-        if area:
-            base = ppu * area
-    if base <= 0:
-        base = ppu or 0.0
+    art_unit = (artwork.unit or "cm").lower()
 
-    pct = float(wall_upcharge or 0)
-    for key, table in UPCHARGES.items():
-        choice = options.get(key)
-        if choice in table:
-            pct += table[choice]
+    if custom_width and custom_height and ppu:
+        w_cm = _to_cm(custom_width, custom_unit)
+        h_cm = _to_cm(custom_height, custom_unit)
+        art_cm = _to_cm(1.0, art_unit)
+        w_native = w_cm / art_cm
+        h_native = h_cm / art_cm
+        base = ppu * w_native * h_native
+    else:
+        base = float(artwork.price or 0)
+        if base <= 0 and ppu:
+            area = _area_from_dimensions(artwork.base_dimensions)
+            base = ppu * area if area else (ppu or 0.0)
+        if base <= 0:
+            base = ppu or 0.0
+
+    def _opt_table(key: str, artwork_field) -> dict:
+        if artwork_field:
+            return {o["label"]: o["upcharge_pct"] for o in artwork_field}
+        return UPCHARGES.get(key, {})
+
+    pct = 0.0
+    pct += _opt_table("frame",   getattr(artwork, "frame_options",   None)).get(options.get("frame", ""), 0)
+    pct += _opt_table("finish",  getattr(artwork, "finish_options",  None)).get(options.get("finish", ""), 0)
+    pct += _opt_table("palette", getattr(artwork, "palette_options", None)).get(options.get("palette", ""), 0)
 
     price = round(base * (1 + pct / 100.0))
     return float(max(price, 0))

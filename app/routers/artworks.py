@@ -129,6 +129,8 @@ def create_artwork(body: ArtworkCreateIn, db: Session = Depends(get_db), me: Use
         min_width=body.min_width, max_width=body.max_width,
         min_height=body.min_height, max_height=body.max_height,
         min_depth=body.min_depth, max_depth=body.max_depth, featured=body.featured,
+        frame_options=body.frame_options, finish_options=body.finish_options,
+        palette_options=body.palette_options,
         images=body.images or [], videos=body.videos or [], model_3d_url=body.model_3d_url,
         status="active", in_stock=True,
     )
@@ -150,6 +152,7 @@ _ARTIST_EDITABLE = {
     "title", "price", "medium", "in_stock", "category_id", "style", "subtype_id",
     "base_dimensions", "customizable", "price_per_unit", "unit",
     "min_width", "max_width", "min_height", "max_height", "min_depth", "max_depth",
+    "frame_options", "finish_options", "palette_options",
 }
 _ADMIN_ONLY = {"status", "featured"}
 

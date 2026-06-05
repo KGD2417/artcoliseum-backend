@@ -84,6 +84,9 @@ class ArtworkCreateIn(BaseModel):
     min_depth: float | None = None    # sculptures only
     max_depth: float | None = None
     predefined_sizes: list[dict] = []   # [{label,width,height,unit,price}]
+    frame_options:   list | None = None  # [{label, upcharge_pct}]
+    finish_options:  list | None = None
+    palette_options: list | None = None
     images: list[str] = []
     videos: list[str] = []
     model_3d_url: str | None = None

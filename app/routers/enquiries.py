@@ -39,10 +39,21 @@ async def create_enquiry(body: EnquiryCreateIn, db: Session = Depends(get_db), m
     if not art:
         raise HTTPException(status_code=404, detail="Artwork not found")
     key = _conv_key(body.artwork_id)
-    selection = {"options": body.options or {}, "wall_upcharge": body.wall_upcharge}
+    selection = {
+        "options": body.options or {},
+        "custom_width": body.custom_width,
+        "custom_height": body.custom_height,
+        "custom_unit": body.custom_unit,
+    }
 
     # Auto-compute the price from the artwork's own pricing + the buyer's choices.
-    price = compute_custom_price(art, options=body.options, wall_upcharge=body.wall_upcharge)
+    price = compute_custom_price(
+        art,
+        options=body.options,
+        custom_width=body.custom_width,
+        custom_height=body.custom_height,
+        custom_unit=body.custom_unit,
+    )
 
     # Reuse an existing live enquiry for this user+artwork; refresh its quote.
     enq = db.scalar(

@@ -72,6 +72,9 @@ class ArtworkOut(BaseModel):
     featured: bool = False
     in_stock: bool = True
     sizes: list[ArtworkSizeOut] = []
+    frame_options:   list | None = None
+    finish_options:  list | None = None
+    palette_options: list | None = None
 
     @field_validator("price", "price_per_unit", "min_width", "max_width", "min_height", "max_height", "min_depth", "max_depth", mode="before")
     @classmethod

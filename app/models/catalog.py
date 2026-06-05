@@ -72,6 +72,11 @@ class Artwork(Base):
     min_depth: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     max_depth: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     model_3d_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Per-artwork customisation option lists (override global defaults in pricing.py).
+    # Each is a JSON array: [{label: str, upcharge_pct: int}, ...]
+    frame_options:   Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    finish_options:  Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    palette_options: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String, default="active")  # draft|active|sold
     featured: Mapped[bool] = mapped_column(Boolean, default=False)
     in_stock: Mapped[bool] = mapped_column(Boolean, default=True)
