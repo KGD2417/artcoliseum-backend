@@ -1,8 +1,11 @@
 """Admin control-panel aggregates: stats, artist KYC, role management."""
+import csv
+import io
 import uuid
 from datetime import datetime, timedelta, timezone
+from xml.sax.saxutils import escape as _xesc
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
@@ -129,6 +132,105 @@ def revenue(db: Session = Depends(get_db), _admin: User = Depends(require_role("
         "totals": totals,
         "by_month": by_month,
     }
+
+
+# ── Accounting export (CSV + Tally-importable XML) ───────────────────────────
+def _paid_order_rows(db: Session) -> list[dict]:
+    """One accounting row per *paid* order — the figures behind Price & Tally."""
+    rows = []
+    for o in db.scalars(select(Order).order_by(Order.created_at)).all():
+        if o.status not in PAID_STATUSES:
+            continue
+        rev = float(o.total or 0); art = float(o.subtotal or 0)
+        gst = float(o.tax or 0); delivery = float(o.delivery_fee or 0)
+        logistics = round(rev - art - gst - delivery, 2)   # transport + setup
+        payout = round(art * ARTIST_PAYOUT_RATE, 2)
+        rows.append({
+            "id": str(o.id), "date": o.created_at,
+            "customer": o.full_name or o.email or "Customer",
+            "status": o.status, "total": rev, "art": art, "gst": gst,
+            "logistics": logistics, "delivery": delivery,
+            "payout": payout, "profit": round(art - payout, 2),
+        })
+    return rows
+
+
+def _tally_voucher(vtype: str, date: datetime, narration: str, entries: list[tuple]) -> str:
+    """entries = [(ledger_name, is_debit, amount), …]. Tally signs debits negative."""
+    d = date.strftime("%Y%m%d")
+    legs = ""
+    for name, is_debit, amount in entries:
+        amt = -abs(amount) if is_debit else abs(amount)
+        legs += (
+            "<ALLLEDGERENTRIES.LIST>"
+            f"<LEDGERNAME>{_xesc(name)}</LEDGERNAME>"
+            f"<ISDEEMEDPOSITIVE>{'Yes' if is_debit else 'No'}</ISDEEMEDPOSITIVE>"
+            f"<AMOUNT>{amt:.2f}</AMOUNT>"
+            "</ALLLEDGERENTRIES.LIST>"
+        )
+    return (
+        "<TALLYMESSAGE xmlns:UDF=\"TallyUDF\">"
+        f"<VOUCHER VCHTYPE=\"{vtype}\" ACTION=\"Create\" OBJVIEW=\"Accounting Voucher View\">"
+        f"<DATE>{d}</DATE><EFFECTIVEDATE>{d}</EFFECTIVEDATE>"
+        f"<NARRATION>{_xesc(narration)}</NARRATION>"
+        f"<VOUCHERTYPENAME>{vtype}</VOUCHERTYPENAME>"
+        f"{legs}</VOUCHER></TALLYMESSAGE>"
+    )
+
+
+def _tally_xml(rows: list[dict]) -> str:
+    msgs = []
+    for r in rows:
+        ref = r["id"][:8].upper()
+        sales = [(r["customer"], True, r["total"]), ("Sales - Artwork", False, r["art"])]
+        if r["gst"]:
+            sales.append(("Output GST", False, r["gst"]))
+        log_del = round(r["logistics"] + r["delivery"], 2)
+        if log_del:
+            sales.append(("Logistics & Delivery Income", False, log_del))
+        msgs.append(_tally_voucher("Sales", r["date"], f"Art Coliseum Order #{ref} - {r['customer']}", sales))
+        if r["payout"]:
+            msgs.append(_tally_voucher("Journal", r["date"], f"Artist payout - order #{ref}",
+                        [("Artist Payouts", True, r["payout"]), ("Artist Payable", False, r["payout"])]))
+    return (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<ENVELOPE><HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER>"
+        "<BODY><IMPORTDATA><REQUESTDESC><REPORTNAME>Vouchers</REPORTNAME></REQUESTDESC>"
+        f"<REQUESTDATA>{''.join(msgs)}</REQUESTDATA></IMPORTDATA></BODY></ENVELOPE>"
+    )
+
+
+@router.get("/revenue/export")
+def export_revenue(format: str = Query("csv"), db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    """Download paid-order accounting data: `format=csv` (accountant ledger) or
+    `format=tally` (Tally-importable vouchers XML)."""
+    rows = _paid_order_rows(db)
+
+    if format == "tally":
+        return Response(
+            content=_tally_xml(rows), media_type="application/xml",
+            headers={"Content-Disposition": 'attachment; filename="art-coliseum-tally.xml"'},
+        )
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["Date", "Order ID", "Customer", "Status", "Gross Total", "Artwork Sales",
+                "GST", "Logistics (Transport+Setup)", "Delivery", "Artist Payout (Expense)", "Net Profit"])
+    tot = dict(total=0.0, art=0.0, gst=0.0, logistics=0.0, delivery=0.0, payout=0.0, profit=0.0)
+    for r in rows:
+        w.writerow([r["date"].strftime("%d-%m-%Y"), r["id"][:8].upper(), r["customer"], r["status"],
+                    f'{r["total"]:.2f}', f'{r["art"]:.2f}', f'{r["gst"]:.2f}', f'{r["logistics"]:.2f}',
+                    f'{r["delivery"]:.2f}', f'{r["payout"]:.2f}', f'{r["profit"]:.2f}'])
+        for k in tot:
+            tot[k] += r[k]
+    w.writerow([])
+    w.writerow(["TOTAL", "", "", f"{len(rows)} orders", f'{tot["total"]:.2f}', f'{tot["art"]:.2f}',
+                f'{tot["gst"]:.2f}', f'{tot["logistics"]:.2f}', f'{tot["delivery"]:.2f}',
+                f'{tot["payout"]:.2f}', f'{tot["profit"]:.2f}'])
+    return Response(
+        content=buf.getvalue(), media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="art-coliseum-revenue.csv"'},
+    )
 
 
 @router.get("/artists")
