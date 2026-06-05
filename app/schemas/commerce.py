@@ -11,15 +11,18 @@ def _f(v):
 # ── Enquiries ────────────────────────────────────────────────────────────────
 class EnquiryCreateIn(BaseModel):
     artwork_id: str
-    options: dict | None = None          # {frame, finish, palette}
-    custom_width:  float | None = None   # buyer's desired artwork width
-    custom_height: float | None = None   # buyer's desired artwork height
+    message: str | None = None           # the buyer's enquiry note (shown to admin)
+    options: dict | None = None          # {frame, finish, palette} — admin context only
+    custom_width:  float | None = None   # buyer's desired artwork width (admin context)
+    custom_height: float | None = None   # buyer's desired artwork height (admin context)
     custom_unit:   str = "cm"            # cm | inch | feet
     size_id: uuid.UUID | None = None
 
 
 class RevealPriceIn(BaseModel):
-    price: float
+    # Per-unit price to unlock for the buyer. Defaults to the artwork's own
+    # price_per_unit when omitted; if supplied, it overrides the artwork's value.
+    price_per_unit: float | None = None
     size_id: uuid.UUID | None = None
 
 
@@ -36,8 +39,10 @@ class EnquiryOut(BaseModel):
     # Enriched for the admin enquiry workspace.
     customer_name: str | None = None
     artwork_title: str | None = None
+    price_per_unit: float | None = None   # artwork's per-unit price, to prefill reveal
+    unit: str | None = None               # cm | inch | feet
 
-    @field_validator("revealed_price", mode="before")
+    @field_validator("revealed_price", "price_per_unit", mode="before")
     @classmethod
     def _conv(cls, v): return _f(v)
 
@@ -49,6 +54,9 @@ class GateOut(BaseModel):
     # Auto-computed quote shown to the buyer after enquiry, before admin approval.
     quoted_price: float | None = None
     enquiry_status: str | None = None
+    # Revealed per-unit price + unit, so the buyer can calculate their total live.
+    price_per_unit: float | None = None
+    unit: str | None = None
 
 
 # ── Cart ─────────────────────────────────────────────────────────────────────
@@ -56,6 +64,11 @@ class CartItemIn(BaseModel):
     artwork_id: str
     fulfillment: str = "transport_setup"
     size_id: uuid.UUID | None = None
+    # Customizable artworks: buyer's chosen dimensions + options drive the line price.
+    options: dict | None = None
+    custom_width:  float | None = None
+    custom_height: float | None = None
+    custom_unit:   str = "cm"
 
 
 class CartItemPatch(BaseModel):

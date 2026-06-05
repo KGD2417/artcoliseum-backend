@@ -70,8 +70,20 @@ def add_item(body: CartItemIn, db: Session = Depends(get_db), me: User = Depends
         )
     )
     if appr:
-        price = float(appr.final_price)
         approval_id = appr.id
+        art = db.get(Artwork, body.artwork_id)
+        if not art:
+            raise HTTPException(status_code=404, detail="Artwork not found")
+        if art.customizable:
+            # The buyer was shown the per-unit price after reveal and picked their
+            # dimensions — compute the authoritative total from those choices.
+            price = pricing.compute_custom_price(
+                art, options=body.options,
+                custom_width=body.custom_width, custom_height=body.custom_height,
+                custom_unit=body.custom_unit,
+            )
+        else:
+            price = float(appr.final_price)
     else:
         # No approval — only allowed for predefined (non-customizable) artworks,
         # which carry a fixed price (optionally per selected size).
