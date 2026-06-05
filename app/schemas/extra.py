@@ -16,6 +16,7 @@ class KycIn(BaseModel):
     location: str | None = None
     about: str | None = None
     avatar_url: str | None = None
+    gender: str | None = None
 
 
 class ArtistStatusOut(BaseModel):
@@ -120,6 +121,7 @@ class AdminArtistIn(BaseModel):
     art_type: str | None = None
     age: int | None = None
     image_url: str | None = None
+    gender: str | None = None
 
 
 class AdminArtistOut(BaseModel):

@@ -33,6 +33,8 @@ class Artist(Base):
     location: Mapped[str | None] = mapped_column(String, nullable=True)
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)
     art_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    # male | female | other — drives the default avatar when no photo is set.
+    gender: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class Artwork(Base):

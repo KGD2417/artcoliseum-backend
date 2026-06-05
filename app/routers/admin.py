@@ -166,11 +166,13 @@ def create_artist(body: AdminArtistIn, db: Session = Depends(get_db), _admin: Us
     db.add(Artist(
         id=slug, name=body.name, role="Art Coliseum Artist", bio=body.bio,
         image_url=body.image_url, location=body.location, age=body.age, art_type=body.art_type,
+        gender=body.gender,
     ))
     # Mirror into KYC (verified) so the artist shows in the admin artists list.
     db.add(ArtistKyc(
         user_id=user.id, name=body.name, age=body.age, art_type=body.art_type,
-        location=body.location, about=body.bio, avatar_url=body.image_url, status="verified",
+        location=body.location, about=body.bio, avatar_url=body.image_url,
+        gender=body.gender, status="verified",
     ))
     db.commit()
     return AdminArtistOut(user_id=user.id, artist_id=slug, name=body.name, email=email)

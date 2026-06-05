@@ -106,7 +106,19 @@ def create_artwork(body: ArtworkCreateIn, db: Session = Depends(get_db), me: Use
         artist = db.get(Artist, artist_slug)
         name = (me.profile.full_name if me.profile and me.profile.full_name else me.email.split("@")[0])
         if not artist:
-            db.add(Artist(id=artist_slug, name=name, role="Art Coliseum Artist"))
+            # Seed the public artist profile from the author's KYC so their page
+            # shows their real photo, bio, location and gender (for the avatar).
+            from ..models.competition import ArtistKyc
+            kyc = db.scalar(select(ArtistKyc).where(ArtistKyc.user_id == me.id))
+            db.add(Artist(
+                id=artist_slug, name=name, role="Art Coliseum Artist",
+                bio=(kyc.about if kyc else None),
+                image_url=(kyc.avatar_url if kyc else (me.profile.avatar_url if me.profile else None)),
+                location=(kyc.location if kyc else None),
+                age=(kyc.age if kyc else None),
+                art_type=(kyc.art_type if kyc else None),
+                gender=(kyc.gender if kyc else None),
+            ))
 
     # Predefined (non-customizable) works must carry a concrete price so buyers
     # can purchase directly. Fall back to the cheapest predefined size if needed.

@@ -38,6 +38,7 @@ class ArtistOut(BaseModel):
     location: str | None = None
     age: int | None = None
     art_type: str | None = None
+    gender: str | None = None
 
 
 class ArtworkOut(BaseModel):

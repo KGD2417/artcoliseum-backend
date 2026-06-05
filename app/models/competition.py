@@ -18,6 +18,7 @@ class ArtistKyc(Base):
     location: Mapped[str | None] = mapped_column(String, nullable=True)
     about: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    gender: Mapped[str | None] = mapped_column(String, nullable=True)  # male | female | other
     # unverified | verified
     status: Mapped[str] = mapped_column(String, default="unverified")
 

@@ -21,10 +21,12 @@ def apply_artist(body: KycIn, db: Session = Depends(get_db), me: User = Depends(
     if kyc:
         kyc.name = body.name; kyc.age = body.age; kyc.art_type = body.art_type
         kyc.location = body.location; kyc.about = body.about; kyc.avatar_url = body.avatar_url
+        kyc.gender = body.gender
     else:
         db.add(ArtistKyc(
             user_id=me.id, name=body.name, age=body.age, art_type=body.art_type,
-            location=body.location, about=body.about, avatar_url=body.avatar_url, status="unverified",
+            location=body.location, about=body.about, avatar_url=body.avatar_url,
+            gender=body.gender, status="unverified",
         ))
     if me.profile and me.profile.artist_status == "none":
         me.profile.artist_status = "unverified"

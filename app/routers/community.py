@@ -114,6 +114,9 @@ def room_messages(slug: str, db: Session = Depends(get_db)):
 def post_room_message(slug: str, body: RoomMessageIn, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
     room = db.scalar(select(ChatRoom).where(ChatRoom.slug == slug))
     if not room:
+        # Only admins may spin up a new room; everyone else posts in existing ones.
+        if not (me.profile and me.profile.role == "admin"):
+            raise HTTPException(status_code=403, detail="Only admins can create new rooms")
         room = ChatRoom(slug=slug, name=slug.replace("-", " ").title())
         db.add(room); db.flush()
     name = me.profile.full_name if me.profile and me.profile.full_name else me.email.split("@")[0]
