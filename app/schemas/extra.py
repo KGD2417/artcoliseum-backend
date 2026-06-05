@@ -137,6 +137,22 @@ class SubtypeIn(BaseModel):
 
 
 # ── Community ────────────────────────────────────────────────────────────────
+class CommunityIn(BaseModel):
+    name: str
+    description: str | None = None
+    color: str | None = None
+    slug: str | None = None   # derived from name when omitted
+
+
+class CommunityOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    slug: str
+    name: str
+    description: str | None = None
+    color: str | None = None
+
+
 class PostIn(BaseModel):
     community: str = "general"
     type: str = "discussion"

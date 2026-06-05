@@ -6,12 +6,57 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..deps import get_current_user, get_optional_user
+from ..deps import get_current_user, get_optional_user, require_role
 from ..models.user import User
-from ..models.community import CommunityPost, PostComment, PostLike, ChatRoom, RoomMessage
-from ..schemas.extra import PostIn, CommentIn, PostOut, RoomMessageIn
+from ..models.community import Community, CommunityPost, PostComment, PostLike, ChatRoom, RoomMessage
+from ..schemas.extra import PostIn, CommentIn, PostOut, RoomMessageIn, CommunityIn, CommunityOut
 
 router = APIRouter(prefix="/community", tags=["community"])
+
+
+# Seeded the first time the table is read so the feed never looks empty.
+_DEFAULT_COMMUNITIES = [
+    ("painting",    "Painting",     "Oil, acrylic, watercolour and all painted works", "#8B4513"),
+    ("sculpture",   "Sculpture",    "Clay, bronze, marble and mixed 3D forms",         "#4A7C59"),
+    ("digital",     "Digital Art",  "Digital, generative, NFT and new media",          "#2C5A8E"),
+    ("photography", "Photography",  "Fine art and documentary photography",            "#6E2C4A"),
+    ("mixed",       "Mixed Media",  "Collage, installation and experimental",          "#4A2C7E"),
+    ("marketplace", "Marketplace",  "Buy, sell and trade original artworks",           "#B87333"),
+    ("general",     "General",      "Art news, events and open conversations",         "#2C8E6E"),
+]
+
+
+def _slugify(s: str) -> str:
+    return "".join(c if c.isalnum() else "-" for c in (s or "").lower()).strip("-") or "community"
+
+
+@router.get("/communities", response_model=list[CommunityOut])
+def list_communities(db: Session = Depends(get_db)):
+    rows = db.scalars(select(Community).order_by(Community.name)).all()
+    if not rows:
+        for slug, name, desc, color in _DEFAULT_COMMUNITIES:
+            db.add(Community(slug=slug, name=name, description=desc, color=color))
+        db.commit()
+        rows = db.scalars(select(Community).order_by(Community.name)).all()
+    return list(rows)
+
+
+@router.post("/communities", response_model=CommunityOut, status_code=201)
+def create_community(body: CommunityIn, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    slug = _slugify(body.slug or body.name)
+    if db.scalar(select(Community).where(Community.slug == slug)):
+        raise HTTPException(status_code=409, detail="A community with this name already exists")
+    c = Community(slug=slug, name=body.name, description=body.description, color=body.color or "#D4AF37")
+    db.add(c); db.commit(); db.refresh(c)
+    return c
+
+
+@router.delete("/communities/{slug}", status_code=204)
+def delete_community(slug: str, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    c = db.scalar(select(Community).where(Community.slug == slug))
+    if c:
+        db.delete(c); db.commit()
+    return None
 
 
 def _post_out(db: Session, p: CommunityPost, me_id) -> PostOut:

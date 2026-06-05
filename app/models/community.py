@@ -8,6 +8,14 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ..database import Base
 
 
+class Community(Base):
+    __tablename__ = "communities"
+    slug: Mapped[str] = mapped_column(String, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
+    color: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
 class CommunityPost(Base):
     __tablename__ = "community_posts"
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
