@@ -1,7 +1,8 @@
 """Artist KYC + monthly competition (admin records the external jury's verdict)."""
 import uuid
+from datetime import datetime
 
-from sqlalchemy import String, Text, Integer, Boolean, ForeignKey
+from sqlalchemy import String, Text, Integer, Boolean, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,7 +27,11 @@ class Competition(Base):
     title: Mapped[str] = mapped_column(String, nullable=False)
     month: Mapped[str | None] = mapped_column(String, nullable=True)  # e.g. "2026-06"
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # open | judging | closed
+    # The day the competition runs (admin-set); the gallery goes live on Go-Live.
+    event_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Target number of entrants shown as progress (does not block go-live).
+    min_artists: Mapped[int] = mapped_column(Integer, default=0)
+    # open | live | judging | closed
     status: Mapped[str] = mapped_column(String, default="open")
 
 

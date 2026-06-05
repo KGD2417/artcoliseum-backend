@@ -28,6 +28,8 @@ class CompetitionIn(BaseModel):
     title: str
     month: str | None = None
     description: str | None = None
+    event_date: str | None = None    # ISO date — the competition day
+    min_artists: int = 0             # target number of entrants (progress only)
 
 
 class CompetitionOut(BaseModel):
@@ -37,12 +39,15 @@ class CompetitionOut(BaseModel):
     month: str | None = None
     description: str | None = None
     status: str
+    event_date: datetime | None = None
+    min_artists: int = 0
+    entry_count: int = 0             # enriched count of entries
     created_at: datetime
 
 
 class EntryIn(BaseModel):
     title: str
-    description: str | None = None
+    description: str | None = None   # narrative
     image_urls: list[str] = []
     video_url: str | None = None
 
@@ -58,12 +63,20 @@ class EntryOut(BaseModel):
     video_url: str | None = None
     status: str
     created_at: datetime
+    # Enriched for the live gallery / admin scoring view.
+    artist_name: str | None = None
+    image: str | None = None
+    avg_score: float | None = None
 
 
 class VerdictIn(BaseModel):
     juror_name: str | None = None
     score: int | None = None
     notes: str | None = None
+
+
+class JuryScoreIn(BaseModel):
+    score: int                       # 1–5 star rating
 
 
 # ── Artwork creation (verified artist) ───────────────────────────────────────

@@ -136,6 +136,25 @@ def create_artist(body: AdminArtistIn, db: Session = Depends(get_db), _admin: Us
     return AdminArtistOut(user_id=user.id, artist_id=slug, name=body.name, email=email)
 
 
+@router.post("/jury/create", status_code=201)
+def create_jury(body: dict, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    """Create a jury login (role=jury) the admin hands to an external judge.
+    Jury members rate competition entries on the day; they are not sellers."""
+    email = (body.get("email") or "").lower().strip()
+    password = body.get("password") or ""
+    name = body.get("name") or ""
+    if not email or not password or not name:
+        raise HTTPException(status_code=400, detail="Email, password and name are required")
+    if db.scalar(select(User).where(User.email == email)):
+        raise HTTPException(status_code=409, detail="Email already registered")
+    user = User(email=email, password_hash=hash_password(password))
+    user.profile = Profile(full_name=name, role="jury", artist_status="none")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"user_id": str(user.id), "email": email, "name": name}
+
+
 @router.post("/artists/{user_id}/verify")
 def verify_artist(user_id: uuid.UUID, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
     """Admin shortcut to verify an artist without the competition (e.g. direct invite)."""
@@ -153,7 +172,7 @@ def verify_artist(user_id: uuid.UUID, db: Session = Depends(get_db), _admin: Use
 @router.patch("/profiles/{user_id}/role")
 def set_role(user_id: uuid.UUID, body: dict, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
     role = body.get("role")
-    if role not in {"user", "artist", "admin"}:
+    if role not in {"user", "artist", "admin", "jury"}:
         raise HTTPException(status_code=400, detail="Invalid role")
     prof = db.scalar(select(Profile).where(Profile.user_id == user_id))
     if not prof:
