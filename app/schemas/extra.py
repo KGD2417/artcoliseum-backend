@@ -88,6 +88,7 @@ class ArtworkCreateIn(BaseModel):
     subtype_id: str | None = None  # existing subtype/style
     base_dimensions: str | None = None
     customizable: bool = True
+    ratio_locked: bool = False
     price_per_unit: float | None = None
     unit: str | None = None        # cm | inch | feet
     min_width: float | None = None    # customization size range, in `unit`
@@ -184,6 +185,9 @@ class EventOut(BaseModel):
     location: str | None = None
     curator: str | None = None
     image_url: str | None = None
+    address: str | None = None
+    parking: str | None = None
+    details: str | None = None
 
 
 class EventRegistrationIn(BaseModel):

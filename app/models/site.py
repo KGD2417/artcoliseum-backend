@@ -18,6 +18,10 @@ class Event(Base):
     location: Mapped[str | None] = mapped_column(String, nullable=True)
     curator: Mapped[str | None] = mapped_column(String, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Admin-entered logistics shown on the event detail.
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parking: Mapped[str | None] = mapped_column(Text, nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class EventRegistration(Base):

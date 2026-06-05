@@ -12,8 +12,10 @@ from ..models.user import User, Profile
 from ..models.catalog import Artwork, Artist
 from ..models.chat import ChatMessage
 from ..models.commerce import Order, OrderItem
-from ..models.site import EventRegistration, ContactMessage, SupportTicket
-from ..models.competition import ArtistKyc
+from ..models.site import Event, EventRegistration, ContactMessage, SupportTicket
+from ..models.competition import ArtistKyc, Competition, CompetitionEntry
+from ..models.enquiry import Enquiry
+from ..models.review import Review, OwnedArtwork
 from ..schemas.extra import AdminArtistIn, AdminArtistOut
 from ..security import hash_password
 
@@ -38,6 +40,44 @@ def stats(db: Session = Depends(get_db), _admin: User = Depends(require_role("ad
         "contact_messages": count(ContactMessage),
         "open_tickets": count(SupportTicket, SupportTicket.status == "open"),
         "pending_artists": count(ArtistKyc, ArtistKyc.status == "unverified"),
+    }
+
+
+@router.get("/analytics")
+def analytics(db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    """Site-wide counts and distributions for the admin overview (numeric)."""
+    count = lambda model, *w: db.scalar(select(func.count()).select_from(model).where(*w)) or 0
+
+    def group(col):
+        rows = db.execute(select(col, func.count()).group_by(col)).all()
+        return {(str(k) if k not in (None, "") else "—"): v for k, v in rows}
+
+    artworks_total = count(Artwork)
+    customizable = count(Artwork, Artwork.customizable == True)  # noqa: E712
+    return {
+        "users": {"total": count(User), "by_role": group(Profile.role)},
+        "artists": {
+            "kyc_total": count(ArtistKyc),
+            "verified": count(ArtistKyc, ArtistKyc.status == "verified"),
+            "unverified": count(ArtistKyc, ArtistKyc.status == "unverified"),
+        },
+        "artworks": {
+            "total": artworks_total, "customizable": customizable,
+            "fixed": artworks_total - customizable,
+            "featured": count(Artwork, Artwork.featured == True),  # noqa: E712
+            "by_category": group(Artwork.category_id),
+            "by_status": group(Artwork.status),
+        },
+        "orders": {"total": count(Order), "by_status": group(Order.status)},
+        "enquiries": {"total": count(Enquiry), "by_status": group(Enquiry.status)},
+        "events": {"total": count(Event), "registrations": count(EventRegistration)},
+        "competitions": {"total": count(Competition), "entries": count(CompetitionEntry), "by_status": group(Competition.status)},
+        "support": {
+            "tickets": count(SupportTicket),
+            "open_tickets": count(SupportTicket, SupportTicket.status == "open"),
+            "contact_messages": count(ContactMessage),
+        },
+        "collection": {"owned": count(OwnedArtwork), "reviews": count(Review)},
     }
 
 

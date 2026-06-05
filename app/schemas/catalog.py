@@ -59,6 +59,7 @@ class ArtworkOut(BaseModel):
     narrative: str | None = None
     base_dimensions: str | None = None
     customizable: bool = True
+    ratio_locked: bool = False
     price_per_unit: float | None = None
     unit: str | None = None
     min_width: float | None = None

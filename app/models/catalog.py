@@ -61,6 +61,8 @@ class Artwork(Base):
     narrative: Mapped[str | None] = mapped_column(Text, nullable=True)
     base_dimensions: Mapped[str | None] = mapped_column(String, nullable=True)
     customizable: Mapped[bool] = mapped_column(Boolean, default=True)
+    # When True the buyer's W and H stay locked to the artwork's aspect ratio.
+    ratio_locked: Mapped[bool] = mapped_column(Boolean, default=False)
     price_per_unit: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     unit: Mapped[str | None] = mapped_column(String, nullable=True)  # cm|inch|feet
     # Customization size range (in `unit`): the min/max the buyer may request.

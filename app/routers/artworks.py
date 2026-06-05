@@ -125,7 +125,7 @@ def create_artwork(body: ArtworkCreateIn, db: Session = Depends(get_db), me: Use
         year=body.year or str(__import__("datetime").datetime.now().year),
         price=price, category_id=body.category_id, subtype_id=body.subtype_id,
         base_dimensions=body.base_dimensions, customizable=body.customizable,
-        price_per_unit=body.price_per_unit, unit=body.unit,
+        ratio_locked=body.ratio_locked, price_per_unit=body.price_per_unit, unit=body.unit,
         min_width=body.min_width, max_width=body.max_width,
         min_height=body.min_height, max_height=body.max_height,
         min_depth=body.min_depth, max_depth=body.max_depth, featured=body.featured,
@@ -150,7 +150,7 @@ def create_artwork(body: ArtworkCreateIn, db: Session = Depends(get_db), me: Use
 # Fields an owning artist may edit; admins may additionally edit the rest.
 _ARTIST_EDITABLE = {
     "title", "price", "medium", "in_stock", "category_id", "style", "subtype_id",
-    "base_dimensions", "customizable", "price_per_unit", "unit",
+    "base_dimensions", "customizable", "ratio_locked", "price_per_unit", "unit",
     "min_width", "max_width", "min_height", "max_height", "min_depth", "max_depth",
     "frame_options", "finish_options", "palette_options",
 }

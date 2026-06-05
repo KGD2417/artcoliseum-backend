@@ -69,35 +69,26 @@ def add_item(body: CartItemIn, db: Session = Depends(get_db), me: User = Depends
             BuyApproval.consumed == False,  # noqa: E712
         )
     )
-    if appr:
-        approval_id = appr.id
-        art = db.get(Artwork, body.artwork_id)
-        if not art:
-            raise HTTPException(status_code=404, detail="Artwork not found")
-        if art.customizable:
-            # The buyer was shown the per-unit price after reveal and picked their
-            # dimensions — compute the authoritative total from those choices.
-            price = pricing.compute_custom_price(
-                art, options=body.options,
-                custom_width=body.custom_width, custom_height=body.custom_height,
-                custom_unit=body.custom_unit,
-            )
-        else:
-            price = float(appr.final_price)
+    art = db.get(Artwork, body.artwork_id)
+    if not art:
+        raise HTTPException(status_code=404, detail="Artwork not found")
+    approval_id = appr.id if appr else None
+
+    if art.customizable:
+        # Customizable works are priced instantly from the buyer's chosen
+        # dimensions + options — no admin approval required.
+        price = pricing.compute_custom_price(
+            art, options=body.options,
+            custom_width=body.custom_width, custom_height=body.custom_height,
+            custom_unit=body.custom_unit,
+        )
     else:
-        # No approval — only allowed for predefined (non-customizable) artworks,
-        # which carry a fixed price (optionally per selected size).
-        art = db.get(Artwork, body.artwork_id)
-        if not art:
-            raise HTTPException(status_code=404, detail="Artwork not found")
-        if art.customizable:
-            raise HTTPException(status_code=403, detail="Not approved to buy this artwork yet")
+        # Predefined (fixed-price) works carry a concrete price (optionally per size).
         price = float(art.price or 0)
         if body.size_id:
             sz = db.get(ArtworkSize, body.size_id)
             if sz and str(sz.artwork_id) == str(art.id):
                 price = float(sz.price)
-        approval_id = None
 
     cart = _get_or_create_cart(db, me)
     existing = db.scalar(
