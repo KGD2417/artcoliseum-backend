@@ -63,9 +63,13 @@ def _post_out(db: Session, p: CommunityPost, me_id) -> PostOut:
     likes = db.scalar(select(func.count()).select_from(PostLike).where(PostLike.post_id == p.id)) or 0
     liked = bool(me_id and db.scalar(select(PostLike).where(PostLike.post_id == p.id, PostLike.user_id == me_id)))
     comments = db.scalars(select(PostComment).where(PostComment.post_id == p.id).order_by(PostComment.created_at)).all()
+    # Merge the legacy single `video` into the `videos` list for older rows.
+    videos = list(p.videos or [])
+    if p.video and p.video not in videos:
+        videos = [p.video, *videos]
     return PostOut(
         id=p.id, user_id=p.user_id, community=p.community, author=p.author, type=p.type,
-        text=p.text, images=p.images or [], video=p.video, title=p.title, condition=p.condition,
+        text=p.text, images=p.images or [], video=p.video, videos=videos, title=p.title, condition=p.condition,
         location=p.location, created_at=p.created_at, likes=likes, liked=liked,
         comments=[{"author": c.author, "text": c.text} for c in comments],
     )
@@ -84,7 +88,8 @@ def create_post(body: PostIn, db: Session = Depends(get_db), me: User = Depends(
     author = me.profile.full_name if me.profile and me.profile.full_name else me.email.split("@")[0]
     p = CommunityPost(
         user_id=me.id, community=body.community, author=author, type=body.type, text=body.text,
-        images=body.images or [], video=body.video, title=body.title, condition=body.condition, location=body.location,
+        images=body.images or [], video=body.video, videos=body.videos or [],
+        title=body.title, condition=body.condition, location=body.location,
     )
     db.add(p); db.commit(); db.refresh(p)
     return _post_out(db, p, me.id)
@@ -124,7 +129,7 @@ def update_post(post_id: uuid.UUID, body: PostIn, db: Session = Depends(get_db),
     if p.user_id != me.id and not is_admin:
         raise HTTPException(status_code=403, detail="Not your post")
     p.community = body.community; p.type = body.type; p.text = body.text
-    p.images = body.images or []; p.video = body.video
+    p.images = body.images or []; p.video = body.video; p.videos = body.videos or []
     p.title = body.title; p.condition = body.condition; p.location = body.location
     db.commit(); db.refresh(p)
     return _post_out(db, p, me.id)

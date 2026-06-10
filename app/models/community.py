@@ -24,7 +24,8 @@ class CommunityPost(Base):
     type: Mapped[str] = mapped_column(String, default="discussion")  # discussion | listing
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
     images: Mapped[list] = mapped_column(JSONB, default=list)
-    video: Mapped[str | None] = mapped_column(String, nullable=True)
+    video: Mapped[str | None] = mapped_column(String, nullable=True)  # legacy single video
+    videos: Mapped[list] = mapped_column(JSONB, default=list)         # multiple videos
     # listing extras
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     condition: Mapped[str | None] = mapped_column(String, nullable=True)

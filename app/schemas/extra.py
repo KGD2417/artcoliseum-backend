@@ -158,7 +158,8 @@ class PostIn(BaseModel):
     type: str = "discussion"
     text: str | None = None
     images: list[str] = []
-    video: str | None = None
+    video: str | None = None          # legacy single video
+    videos: list[str] = []            # multiple videos
     title: str | None = None
     condition: str | None = None
     location: str | None = None
@@ -177,7 +178,8 @@ class PostOut(BaseModel):
     type: str
     text: str | None = None
     images: list[str] = []
-    video: str | None = None
+    video: str | None = None          # legacy single video
+    videos: list[str] = []            # multiple videos
     title: str | None = None
     condition: str | None = None
     location: str | None = None

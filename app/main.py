@@ -26,6 +26,28 @@ from .websocket import manager
 # (Phase-by-phase schema growth; swap to Alembic migrations before production.)
 Base.metadata.create_all(bind=engine)
 
+
+def _run_lightweight_migrations() -> None:
+    """Add columns that were introduced after a table already existed.
+
+    create_all() never ALTERs existing tables, so newly-added columns need a
+    one-off, idempotent ADD COLUMN IF NOT EXISTS. Keep these Postgres-safe.
+    """
+    from sqlalchemy import text
+    statements = [
+        # community_posts.videos — multiple-video support for posts.
+        "ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS videos JSONB DEFAULT '[]'::jsonb",
+    ]
+    with engine.begin() as conn:
+        for stmt in statements:
+            try:
+                conn.execute(text(stmt))
+            except Exception as exc:  # pragma: no cover - best-effort dev migration
+                print(f"[migration] skipped: {stmt!r} ({exc})")
+
+
+_run_lightweight_migrations()
+
 app = FastAPI(title="Art Coliseum API", version="0.1.0")
 
 _origins_raw = [o.strip() for o in settings.FRONTEND_ORIGIN.split(",") if o.strip()]
