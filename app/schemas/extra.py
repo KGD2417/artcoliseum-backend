@@ -3,6 +3,8 @@ import uuid
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from .catalog import CategoryTab
+
 
 def _f(v):
     return float(v) if v is not None else v
@@ -134,6 +136,28 @@ class AdminArtistOut(BaseModel):
 class SubtypeIn(BaseModel):
     label: str
     parent_id: str  # the main medium this style belongs under
+    image_url: str | None = None
+    description: str | None = None
+
+
+class CategoryIn(BaseModel):
+    """Admin payload for creating a main category with its page content."""
+    label: str
+    tagline: str | None = None
+    description: str | None = None
+    image_url: str | None = None
+    tabs: list[CategoryTab] = []
+    pioneers: list[str] = []
+
+
+class CategoryUpdate(BaseModel):
+    """Admin payload for editing any category; only provided fields change."""
+    label: str | None = None
+    tagline: str | None = None
+    description: str | None = None
+    image_url: str | None = None
+    tabs: list[CategoryTab] | None = None
+    pioneers: list[str] | None = None
 
 
 # ── Community ────────────────────────────────────────────────────────────────

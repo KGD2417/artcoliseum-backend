@@ -19,6 +19,14 @@ class Category(Base):
     )
     # kind: main (medium, parent_id null) | subtype (style, parent_id set)
     kind: Mapped[str] = mapped_column(String, default="main", nullable=False)
+    # Admin-managed page content. For mains, image_url is both the Collections
+    # card image and the detail-page hero; subtypes use image_url + description.
+    image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    tagline: Mapped[str | None] = mapped_column(String, nullable=True)  # e.g. "THE ART OF CERAMICS"
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # tabs: [{label, heading, body, image_url}] — the detail-page slide panels.
+    tabs: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    pioneers: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # ["name", ...]
 
 
 class Artist(Base):

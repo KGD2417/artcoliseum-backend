@@ -8,7 +8,7 @@ from ..deps import get_current_user, require_role
 from ..models.user import User
 from ..models.catalog import Category
 from ..schemas.catalog import CategoryOut
-from ..schemas.extra import SubtypeIn
+from ..schemas.extra import CategoryIn, CategoryUpdate, SubtypeIn
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
@@ -20,20 +20,42 @@ def list_categories(db: Session = Depends(get_db)):
 
 @router.post("", response_model=CategoryOut, status_code=201)
 def create_main_category(
-    body: dict,
+    body: CategoryIn,
     db: Session = Depends(get_db),
     _admin: User = Depends(require_role("admin")),
 ):
-    """Admin-only: create a new main medium (top-level category)."""
-    label = (body.get("label") or "").strip()
+    """Admin-only: create a new main medium (top-level category) with its page content."""
+    label = body.label.strip()
     if not label:
         raise HTTPException(status_code=400, detail="label is required")
     cid = "".join(c if c.isalnum() else "-" for c in label.lower()).strip("-")
     if db.get(Category, cid):
         raise HTTPException(status_code=409, detail="Category already exists")
-    cat = Category(id=cid, label=label, parent_id=None, kind="main")
+    cat = Category(
+        id=cid, label=label, parent_id=None, kind="main",
+        image_url=body.image_url, tagline=body.tagline, description=body.description,
+        tabs=[t.model_dump() for t in body.tabs], pioneers=body.pioneers,
+    )
     db.add(cat)
     db.commit()
+    return cat
+
+
+@router.patch("/{category_id}", response_model=CategoryOut)
+def update_category(
+    category_id: str,
+    body: CategoryUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """Admin-only: update a category's label or page content."""
+    cat = db.get(Category, category_id)
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(cat, key, value)
+    db.commit()
+    db.refresh(cat)
     return cat
 
 
@@ -50,7 +72,10 @@ def create_subtype(body: SubtypeIn, db: Session = Depends(get_db), me: User = De
     cid = "".join(c if c.isalnum() else "-" for c in body.label.lower()).strip("-")
     if db.get(Category, cid):
         raise HTTPException(status_code=409, detail="That style already exists")
-    cat = Category(id=cid, label=body.label, parent_id=body.parent_id, kind="subtype")
+    cat = Category(
+        id=cid, label=body.label, parent_id=body.parent_id, kind="subtype",
+        image_url=body.image_url, description=body.description,
+    )
     db.add(cat)
     db.commit()
     return cat

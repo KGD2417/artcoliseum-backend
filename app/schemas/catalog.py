@@ -19,12 +19,30 @@ class ArtworkSizeOut(BaseModel):
         return float(v) if v is not None else v
 
 
+class CategoryTab(BaseModel):
+    """One detail-page slide panel (About the Art, History & Origins, …)."""
+    label: str = ""
+    heading: str = ""
+    body: str = ""
+    image_url: str | None = None
+
+
 class CategoryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     label: str
     parent_id: str | None = None
     kind: str
+    image_url: str | None = None
+    tagline: str | None = None
+    description: str | None = None
+    tabs: list[CategoryTab] = []
+    pioneers: list[str] = []
+
+    @field_validator("tabs", "pioneers", mode="before")
+    @classmethod
+    def _none_to_list(cls, v):
+        return v if v is not None else []
 
 
 class ArtistOut(BaseModel):

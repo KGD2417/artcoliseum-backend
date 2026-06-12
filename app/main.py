@@ -37,6 +37,13 @@ def _run_lightweight_migrations() -> None:
     statements = [
         # community_posts.videos — multiple-video support for posts.
         "ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS videos JSONB DEFAULT '[]'::jsonb",
+        # categories — admin-managed page content (hero/card image, tagline,
+        # description, detail-page tabs, pioneers list).
+        "ALTER TABLE categories ADD COLUMN IF NOT EXISTS image_url VARCHAR",
+        "ALTER TABLE categories ADD COLUMN IF NOT EXISTS tagline VARCHAR",
+        "ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT",
+        "ALTER TABLE categories ADD COLUMN IF NOT EXISTS tabs JSONB",
+        "ALTER TABLE categories ADD COLUMN IF NOT EXISTS pioneers JSONB",
     ]
     with engine.begin() as conn:
         for stmt in statements:
