@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     ACCESS_TTL_MIN: int = 30
     REFRESH_TTL_DAYS: int = 14
 
+    # Where uploaded files are written and served from (/uploads/...).
+    # Local dev: a relative "uploads" folder is fine.
+    # Railway (production): set UPLOAD_DIR to a path on a mounted Volume
+    # (e.g. /data/uploads) so files survive redeploys — the container
+    # filesystem is otherwise ephemeral and wiped on every deploy.
     UPLOAD_DIR: str = "uploads"
     FRONTEND_ORIGIN: str = "http://localhost:5173"
 
