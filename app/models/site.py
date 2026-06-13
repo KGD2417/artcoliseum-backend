@@ -21,6 +21,7 @@ class Event(Base):
     # Admin-entered logistics shown on the event detail.
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     parking: Mapped[str | None] = mapped_column(Text, nullable=True)
+    maps_url: Mapped[str | None] = mapped_column(String, nullable=True)  # Google Maps link
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 

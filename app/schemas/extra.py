@@ -234,6 +234,7 @@ class EventOut(BaseModel):
     image_url: str | None = None
     address: str | None = None
     parking: str | None = None
+    maps_url: str | None = None
     details: str | None = None
 
 

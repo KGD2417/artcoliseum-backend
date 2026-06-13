@@ -37,7 +37,8 @@ def create_event(body: dict, db: Session = Depends(get_db), _admin: User = Depen
         status=body.get("status", "upcoming"), location=body.get("location"),
         curator=body.get("curator"), image_url=body.get("image_url"),
         starts_at=body.get("starts_at"), ends_at=body.get("ends_at"),
-        address=body.get("address"), parking=body.get("parking"), details=body.get("details"),
+        address=body.get("address"), parking=body.get("parking"),
+        maps_url=body.get("maps_url"), details=body.get("details"),
     )
     db.add(ev); db.commit(); db.refresh(ev)
     return ev
@@ -48,7 +49,7 @@ def update_event(event_id: uuid.UUID, body: dict, db: Session = Depends(get_db),
     ev = db.get(Event, event_id)
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
-    for f in ("title", "description", "status", "location", "curator", "image_url", "starts_at", "ends_at", "address", "parking", "details"):
+    for f in ("title", "description", "status", "location", "curator", "image_url", "starts_at", "ends_at", "address", "parking", "maps_url", "details"):
         if f in body and body[f] is not None:
             setattr(ev, f, body[f])
     db.commit(); db.refresh(ev)

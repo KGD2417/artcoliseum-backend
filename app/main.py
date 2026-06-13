@@ -56,6 +56,8 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS custom_depth NUMERIC(10,2)",
         "ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS custom_unit VARCHAR",
         "ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS options JSONB",
+        # events.maps_url — admin-supplied Google Maps link for the venue.
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS maps_url VARCHAR",
     ]
     with engine.begin() as conn:
         for stmt in statements:
