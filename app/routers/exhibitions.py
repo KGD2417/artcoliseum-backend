@@ -13,6 +13,7 @@ from ..deps import get_current_user, get_optional_user, require_role
 from ..models.user import User
 from ..models.catalog import Artwork, Artist, Category
 from ..models.competition import ArtistKyc
+from ..models.exhibition import Exhibition
 from ..schemas.catalog import ArtworkOut
 from ..schemas.exhibition import ExhibitionIn, ExhibitionUpdate, ExhibitionOut, ExhibitionArtworkIn
 
