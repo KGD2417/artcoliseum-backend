@@ -19,6 +19,19 @@ def _slugify(s: str) -> str:
     return "".join(c if c.isalnum() else "-" for c in s.lower()).strip("-")
 
 
+def _fmt_num(n) -> str:
+    f = float(n)
+    return str(int(f)) if f == int(f) else f"{f:g}"
+
+
+def _compose_dims(width, height, depth, unit) -> str | None:
+    """Build the display dimensions string from structured W × H [× D]."""
+    parts = [p for p in (width, height, depth) if p is not None]
+    if len(parts) < 2:
+        return None
+    return f"{' × '.join(_fmt_num(p) for p in parts)} {unit or 'cm'}"
+
+
 def _artist_slug(user: User) -> str:
     """The catalog Artist id a logged-in artist authors under."""
     return f"artist-{user.id.hex[:8]}"
@@ -140,13 +153,22 @@ def create_artwork(body: ArtworkCreateIn, db: Session = Depends(get_db), me: Use
     if not body.customizable and price <= 0:
         raise HTTPException(status_code=400, detail="Predefined artworks need a price greater than 0")
 
+    # Structured size → derive the display string. For customizable works the
+    # size is the customization range, so fall back to the minimum size.
+    width, height, depth = body.width, body.height, body.depth
+    dims_unit = body.unit or "cm"
+    base_dimensions = body.base_dimensions or _compose_dims(width, height, depth, dims_unit)
+    if not base_dimensions and body.customizable:
+        base_dimensions = _compose_dims(body.min_width, body.min_height, body.min_depth, dims_unit)
+
     aid = f"aw-{uuid.uuid4().hex[:10]}"
     art = Artwork(
         id=aid, title=body.title, narrative=body.narrative, description=body.narrative,
         medium=body.medium, artist_id=artist_slug, artist_name=name,
         year=body.year or str(__import__("datetime").datetime.now().year),
         price=price, category_id=body.category_id, subtype_id=body.subtype_id,
-        base_dimensions=body.base_dimensions, customizable=body.customizable,
+        width=width, height=height, depth=depth,
+        base_dimensions=base_dimensions, customizable=body.customizable,
         ratio_locked=body.ratio_locked, price_per_unit=body.price_per_unit, unit=body.unit,
         min_width=body.min_width, max_width=body.max_width,
         min_height=body.min_height, max_height=body.max_height,
@@ -173,9 +195,9 @@ def create_artwork(body: ArtworkCreateIn, db: Session = Depends(get_db), me: Use
 # Fields an owning artist may edit; admins may additionally edit the rest.
 _ARTIST_EDITABLE = {
     "title", "price", "medium", "in_stock", "category_id", "style", "subtype_id",
-    "base_dimensions", "customizable", "ratio_locked", "price_per_unit", "unit",
-    "min_width", "max_width", "min_height", "max_height", "min_depth", "max_depth",
-    "frame_options", "finish_options", "palette_options",
+    "base_dimensions", "width", "height", "depth", "customizable", "ratio_locked",
+    "price_per_unit", "unit", "min_width", "max_width", "min_height", "max_height",
+    "min_depth", "max_depth", "frame_options", "finish_options", "palette_options",
 }
 _ADMIN_ONLY = {"status", "featured", "rejection_reason"}
 
@@ -192,6 +214,12 @@ def update_artwork(artwork_id: str, body: dict, db: Session = Depends(get_db), m
     for field in allowed:
         if field in body and body[field] is not None:
             setattr(art, field, body[field])
+    # Re-derive the display dimensions when structured size changed (unless the
+    # caller explicitly sent a base_dimensions string).
+    if any(k in body for k in ("width", "height", "depth")) and "base_dimensions" not in body:
+        composed = _compose_dims(art.width, art.height, art.depth, art.unit or "cm")
+        if composed:
+            art.base_dimensions = composed
     db.commit()
     db.refresh(art)
     return art

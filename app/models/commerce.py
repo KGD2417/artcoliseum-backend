@@ -23,6 +23,13 @@ class CartItem(Base):
     approval_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("buy_approvals.id"), nullable=True)
     artwork_price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     size_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    # Buyer's chosen customization (for made-to-order works) — kept so the cart
+    # can show exactly what they configured.
+    custom_width: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    custom_height: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    custom_depth: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    custom_unit: Mapped[str | None] = mapped_column(String, nullable=True)
+    options: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # {frame, finish, palette}
     # transport_setup | transport_only | self_pickup
     fulfillment: Mapped[str] = mapped_column(String, default="transport_setup")
     transport_cost: Mapped[float] = mapped_column(Numeric(12, 2), default=0)

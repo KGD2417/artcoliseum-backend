@@ -89,7 +89,10 @@ class ArtworkCreateIn(BaseModel):
     medium: str | None = None
     category_id: str               # must be an existing main medium
     subtype_id: str | None = None  # existing subtype/style
-    base_dimensions: str | None = None
+    base_dimensions: str | None = None   # derived from width/height/depth if omitted
+    width: float | None = None     # structured physical size of the work
+    height: float | None = None
+    depth: float | None = None     # 3-D / sculpture only
     customizable: bool = True
     ratio_locked: bool = False
     price_per_unit: float | None = None

@@ -59,6 +59,11 @@ class Artwork(Base):
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     size: Mapped[str | None] = mapped_column(String, nullable=True)   # small|medium|large
     style: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Structured physical size of the work (width × height, plus depth for 3-D /
+    # sculpture). base_dimensions below is the derived display string.
+    width: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    height: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    depth: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     category_id: Mapped[str | None] = mapped_column(
         ForeignKey("categories.id"), nullable=True
     )

@@ -46,6 +46,16 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE categories ADD COLUMN IF NOT EXISTS pioneers JSONB",
         # artworks.rejection_reason — feedback when an admin rejects a submission.
         "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS rejection_reason TEXT",
+        # artworks structured size (base_dimensions is the derived display string).
+        "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS width NUMERIC(10,2)",
+        "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS height NUMERIC(10,2)",
+        "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS depth NUMERIC(10,2)",
+        # cart_items — persist the buyer's chosen customization for display.
+        "ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS custom_width NUMERIC(10,2)",
+        "ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS custom_height NUMERIC(10,2)",
+        "ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS custom_depth NUMERIC(10,2)",
+        "ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS custom_unit VARCHAR",
+        "ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS options JSONB",
     ]
     with engine.begin() as conn:
         for stmt in statements:

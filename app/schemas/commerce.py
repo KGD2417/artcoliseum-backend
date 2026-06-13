@@ -68,6 +68,7 @@ class CartItemIn(BaseModel):
     options: dict | None = None
     custom_width:  float | None = None
     custom_height: float | None = None
+    custom_depth:  float | None = None
     custom_unit:   str = "cm"
 
 
@@ -95,6 +96,14 @@ class CartItemDetail(CartItemOut):
     image: str | None = None
     artist_name: str | None = None
     line_total: float = 0
+    customizable: bool = False
+    # What the buyer selected — shown in the cart.
+    size_label: str | None = None       # predefined-size label
+    custom_width:  float | None = None
+    custom_height: float | None = None
+    custom_depth:  float | None = None
+    custom_unit:   str | None = None
+    options: dict | None = None         # {frame, finish, palette}
 
 
 class CartBreakdownOut(BaseModel):

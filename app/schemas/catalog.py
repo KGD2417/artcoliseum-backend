@@ -70,6 +70,9 @@ class ArtworkOut(BaseModel):
     price: float = 0
     size: str | None = None
     style: str | None = None
+    width: float | None = None
+    height: float | None = None
+    depth: float | None = None
     category_id: str | None = None
     subtype_id: str | None = None
     images: list[str] = []
@@ -97,7 +100,7 @@ class ArtworkOut(BaseModel):
     finish_options:  list | None = None
     palette_options: list | None = None
 
-    @field_validator("price", "price_per_unit", "min_width", "max_width", "min_height", "max_height", "min_depth", "max_depth", mode="before")
+    @field_validator("price", "price_per_unit", "min_width", "max_width", "min_height", "max_height", "min_depth", "max_depth", "width", "height", "depth", mode="before")
     @classmethod
     def _decimal_to_float(cls, v):
         return float(v) if v is not None else v

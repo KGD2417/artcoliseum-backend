@@ -37,6 +37,11 @@ def _breakdown(db: Session, cart: Cart) -> CartBreakdownOut:
         t = float(it.transport_cost)
         s = float(it.setup_cost)
         art_sub += ap; t_sub += t; s_sub += s
+        size_label = None
+        if it.size_id:
+            sz = db.get(ArtworkSize, it.size_id)
+            if sz:
+                size_label = sz.label
         details.append(CartItemDetail(
             id=it.id, artwork_id=it.artwork_id, artwork_price=ap, fulfillment=it.fulfillment,
             transport_cost=t, setup_cost=s, qty=it.qty,
@@ -44,6 +49,13 @@ def _breakdown(db: Session, cart: Cart) -> CartBreakdownOut:
             image=(art.images[0] if art and art.images else None),
             artist_name=art.artist_name if art else None,
             line_total=ap + t + s,
+            customizable=bool(art.customizable) if art else False,
+            size_label=size_label,
+            custom_width=float(it.custom_width) if it.custom_width is not None else None,
+            custom_height=float(it.custom_height) if it.custom_height is not None else None,
+            custom_depth=float(it.custom_depth) if it.custom_depth is not None else None,
+            custom_unit=it.custom_unit,
+            options=it.options or None,
         ))
     gst = pricing.gst(art_sub)
     return CartBreakdownOut(
@@ -95,15 +107,25 @@ def add_item(body: CartItemIn, db: Session = Depends(get_db), me: User = Depends
         select(CartItem).where(CartItem.cart_id == cart.id, CartItem.artwork_id == body.artwork_id)
     )
     costs = pricing.line_costs(price, body.fulfillment)
+    # Persist the buyer's selection so the cart can show exactly what they chose.
+    sel = dict(
+        size_id=body.size_id, custom_width=body.custom_width, custom_height=body.custom_height,
+        custom_depth=body.custom_depth, custom_unit=(body.custom_unit if art.customizable else None),
+        options=(body.options if art.customizable else None),
+    )
     if existing:
         existing.fulfillment = body.fulfillment
         existing.transport_cost = costs["transport_cost"]
         existing.setup_cost = costs["setup_cost"]
+        existing.artwork_price = price
+        for k, v in sel.items():
+            setattr(existing, k, v)
     else:
         db.add(CartItem(
             cart_id=cart.id, artwork_id=body.artwork_id, approval_id=approval_id,
-            artwork_price=price, size_id=body.size_id, fulfillment=body.fulfillment,
+            artwork_price=price, fulfillment=body.fulfillment,
             transport_cost=costs["transport_cost"], setup_cost=costs["setup_cost"], qty=1,
+            **sel,
         ))
     db.commit()
     return _breakdown(db, cart)
