@@ -108,8 +108,14 @@ def get_artist(artist_id: str, db: Session = Depends(get_db)):
 
 @router.get("/{artist_id}/artworks", response_model=list[ArtworkOut])
 def artist_artworks(artist_id: str, db: Session = Depends(get_db)):
+    # Public profile shows the artist's live collection works only — not pending
+    # submissions and not exhibition-only pieces.
     return list(
         db.scalars(
-            select(Artwork).where(Artwork.artist_id == artist_id).order_by(Artwork.created_at)
+            select(Artwork).where(
+                Artwork.artist_id == artist_id,
+                Artwork.status == "active",
+                Artwork.exhibition_id.is_(None),
+            ).order_by(Artwork.created_at)
         ).all()
     )

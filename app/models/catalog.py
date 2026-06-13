@@ -97,6 +97,11 @@ class Artwork(Base):
     # pending (awaiting admin approval) | active (approved, public) | rejected | draft | sold
     status: Mapped[str] = mapped_column(String, default="active")
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # When set, this piece belongs to an online exhibition only — it is excluded
+    # from the normal collection/store and shown solely within that exhibition.
+    exhibition_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("exhibitions.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     featured: Mapped[bool] = mapped_column(Boolean, default=False)
     in_stock: Mapped[bool] = mapped_column(Boolean, default=True)
 

@@ -41,5 +41,17 @@ class ExhibitionOut(BaseModel):
     artworks: list[ArtworkOut] = []
 
 
-class SubmitIn(BaseModel):
-    artwork_ids: list[str]
+class ExhibitionArtworkIn(BaseModel):
+    """A dedicated artwork an artist submits to the exhibition (separate from the
+    collection). Sold at a fixed price within the show."""
+    title: str
+    narrative: str | None = None
+    medium: str | None = None
+    category_id: str | None = None
+    images: list[str] = []
+    price: float = 0
+    width: float | None = None
+    height: float | None = None
+    depth: float | None = None
+    unit: str | None = "cm"
+    year: str | None = None

@@ -55,7 +55,8 @@ def list_artworks(
 ):
     # Public listing: only approved, sellable works. Pending/rejected/draft are
     # never shown here (admin uses /artworks/pending; artists use /artworks/mine).
-    stmt = select(Artwork).where(Artwork.status == "active")
+    # Exhibition-only pieces (exhibition_id set) never appear in the collection.
+    stmt = select(Artwork).where(Artwork.status == "active", Artwork.exhibition_id.is_(None))
     if category:
         stmt = stmt.where(Artwork.category_id == category)
     if subtype:
@@ -79,18 +80,21 @@ def list_artworks(
 
 @router.get("/mine", response_model=list[ArtworkOut])
 def my_artworks(db: Session = Depends(get_db), me: User = Depends(get_current_user)):
-    """The logged-in artist's own works (for the artist dashboard) — all statuses."""
+    """The logged-in artist's own COLLECTION works (exhibition pieces live in the
+    exhibition panel, fetched separately)."""
     slug = _artist_slug(me)
     return list(db.scalars(
-        select(Artwork).where(Artwork.artist_id == slug).order_by(Artwork.created_at.desc())
+        select(Artwork).where(Artwork.artist_id == slug, Artwork.exhibition_id.is_(None))
+        .order_by(Artwork.created_at.desc())
     ).all())
 
 
 @router.get("/pending", response_model=list[ArtworkOut])
 def pending_artworks(db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
-    """Admin approval queue: every artwork awaiting review."""
+    """Admin approval queue: every collection artwork awaiting review."""
     return list(db.scalars(
-        select(Artwork).where(Artwork.status == "pending").order_by(Artwork.created_at.desc())
+        select(Artwork).where(Artwork.status == "pending", Artwork.exhibition_id.is_(None))
+        .order_by(Artwork.created_at.desc())
     ).all())
 
 

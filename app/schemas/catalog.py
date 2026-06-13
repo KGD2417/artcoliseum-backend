@@ -93,6 +93,7 @@ class ArtworkOut(BaseModel):
     model_3d_url: str | None = None
     status: str = "active"
     rejection_reason: str | None = None
+    exhibition_id: uuid.UUID | None = None
     featured: bool = False
     in_stock: bool = True
     sizes: list[ArtworkSizeOut] = []

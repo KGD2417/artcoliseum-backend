@@ -1,5 +1,6 @@
 """Online exhibitions: admin runs a registration window, approved artists submit
-approved artworks, then the curated show goes live as an online gallery."""
+*dedicated* exhibition artworks (separate from the collection, sold within the
+show), then the curated show goes live as an online gallery."""
 import uuid
 from datetime import datetime, timezone
 
@@ -10,9 +11,10 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..deps import get_current_user, get_optional_user, require_role
 from ..models.user import User
-from ..models.catalog import Artwork
-from ..models.exhibition import Exhibition, ExhibitionSubmission
-from ..schemas.exhibition import ExhibitionIn, ExhibitionUpdate, ExhibitionOut, SubmitIn
+from ..models.catalog import Artwork, Artist, Category
+from ..models.competition import ArtistKyc
+from ..schemas.catalog import ArtworkOut
+from ..schemas.exhibition import ExhibitionIn, ExhibitionUpdate, ExhibitionOut, ExhibitionArtworkIn
 
 router = APIRouter(prefix="/exhibitions", tags=["exhibitions"])
 
@@ -27,6 +29,34 @@ def _is_admin(me: User | None) -> bool:
 
 def _is_approved_artist(me: User | None) -> bool:
     return bool(me and me.profile and me.profile.artist_status == "verified")
+
+
+def _fmt_num(n) -> str:
+    f = float(n)
+    return str(int(f)) if f == int(f) else f"{f:g}"
+
+
+def _compose_dims(width, height, depth, unit) -> str | None:
+    parts = [p for p in (width, height, depth) if p is not None]
+    if len(parts) < 2:
+        return None
+    return f"{' × '.join(_fmt_num(p) for p in parts)} {unit or 'cm'}"
+
+
+def _ensure_artist(db: Session, me: User) -> tuple[str, str]:
+    """Resolve (and lazily seed from KYC) the caller's catalog Artist row."""
+    slug = _artist_slug(me)
+    name = (me.profile.full_name if me.profile and me.profile.full_name else me.email.split("@")[0])
+    if not db.get(Artist, slug):
+        kyc = db.scalar(select(ArtistKyc).where(ArtistKyc.user_id == me.id))
+        db.add(Artist(
+            id=slug, name=name, role="Art Coliseum Artist",
+            bio=(kyc.about if kyc else None),
+            image_url=(kyc.avatar_url if kyc else (me.profile.avatar_url if me.profile else None)),
+            location=(kyc.location if kyc else None), age=(kyc.age if kyc else None),
+            art_type=(kyc.art_type if kyc else None), gender=(kyc.gender if kyc else None),
+        ))
+    return slug, name
 
 
 def _phase(ex: Exhibition) -> str:
@@ -46,24 +76,16 @@ def _phase(ex: Exhibition) -> str:
 
 def _submission_count(db: Session, ex_id: uuid.UUID) -> int:
     return db.scalar(
-        select(func.count()).select_from(ExhibitionSubmission)
-        .where(ExhibitionSubmission.exhibition_id == ex_id)
+        select(func.count()).select_from(Artwork).where(Artwork.exhibition_id == ex_id)
     ) or 0
 
 
-def _live_artworks(db: Session, ex_id: uuid.UUID) -> list[Artwork]:
-    """Approved artworks submitted to this exhibition, in submission order."""
-    rows = db.scalars(
-        select(ExhibitionSubmission)
-        .where(ExhibitionSubmission.exhibition_id == ex_id)
-        .order_by(ExhibitionSubmission.created_at)
-    ).all()
-    out = []
-    for s in rows:
-        art = db.get(Artwork, s.artwork_id)
-        if art and art.status == "active":
-            out.append(art)
-    return out
+def _exhibition_artworks(db: Session, ex_id: uuid.UUID, *, active_only: bool) -> list[Artwork]:
+    """The exhibition's own artworks, in submission order."""
+    stmt = select(Artwork).where(Artwork.exhibition_id == ex_id)
+    if active_only:
+        stmt = stmt.where(Artwork.status == "active")
+    return list(db.scalars(stmt.order_by(Artwork.created_at)).all())
 
 
 def _serialize(db: Session, ex: Exhibition, *, with_artworks: bool) -> ExhibitionOut:
@@ -72,8 +94,7 @@ def _serialize(db: Session, ex: Exhibition, *, with_artworks: bool) -> Exhibitio
     data.status = phase
     data.submission_count = _submission_count(db, ex.id)
     if with_artworks and phase == "live":
-        from ..schemas.catalog import ArtworkOut
-        data.artworks = [ArtworkOut.model_validate(a) for a in _live_artworks(db, ex.id)]
+        data.artworks = [ArtworkOut.model_validate(a) for a in _exhibition_artworks(db, ex.id, active_only=True)]
     return data
 
 
@@ -94,67 +115,64 @@ def current_exhibition(db: Session = Depends(get_db), me: User | None = Depends(
     return _serialize(db, ex, with_artworks=True)
 
 
-@router.get("/current/mine", response_model=list[str])
+@router.get("/current/mine", response_model=list[ArtworkOut])
 def my_submissions(db: Session = Depends(get_db), me: User = Depends(get_current_user)):
-    """Artwork ids the caller has submitted to the current exhibition."""
+    """The caller's own artworks submitted to the current exhibition."""
     ex = _active_exhibition(db)
     if not ex:
         return []
+    slug = _artist_slug(me)
     return list(db.scalars(
-        select(ExhibitionSubmission.artwork_id)
-        .where(ExhibitionSubmission.exhibition_id == ex.id,
-               ExhibitionSubmission.user_id == me.id)
+        select(Artwork).where(Artwork.exhibition_id == ex.id, Artwork.artist_id == slug)
+        .order_by(Artwork.created_at)
     ).all())
 
 
-@router.post("/current/submit", response_model=list[str])
-def submit_to_current(body: SubmitIn, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
-    """Approved artist submits their approved artworks to the open exhibition."""
+@router.post("/current/artworks", response_model=ArtworkOut, status_code=201)
+def submit_artwork(body: ExhibitionArtworkIn, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
+    """Approved artist submits a NEW, exhibition-only artwork during registration.
+    These never appear in the collection — only inside the show."""
     if not (_is_approved_artist(me) or _is_admin(me)):
         raise HTTPException(status_code=403, detail="Only approved artists may submit")
     ex = _active_exhibition(db)
     if not ex or _phase(ex) != "registration":
         raise HTTPException(status_code=400, detail="Registration is not open right now")
+    if not body.title.strip():
+        raise HTTPException(status_code=400, detail="Title is required")
+    if not body.price or float(body.price) <= 0:
+        raise HTTPException(status_code=400, detail="An exhibition piece needs a price greater than 0")
+    if body.category_id and not db.get(Category, body.category_id):
+        raise HTTPException(status_code=400, detail="category_id does not exist")
 
-    slug = _artist_slug(me)
-    existing = set(db.scalars(
-        select(ExhibitionSubmission.artwork_id)
-        .where(ExhibitionSubmission.exhibition_id == ex.id,
-               ExhibitionSubmission.user_id == me.id)
-    ).all())
-    for aid in body.artwork_ids:
-        art = db.get(Artwork, aid)
-        if not art:
-            continue
-        # Must be the caller's own, approved artwork (admins may submit any active work).
-        if not _is_admin(me) and art.artist_id != slug:
-            continue
-        if art.status != "active":
-            raise HTTPException(status_code=400, detail=f"'{art.title}' must be approved before it can be exhibited")
-        if aid in existing:
-            continue
-        db.add(ExhibitionSubmission(
-            exhibition_id=ex.id, user_id=me.id, artist_id=art.artist_id, artwork_id=aid,
-        ))
-        existing.add(aid)
+    slug, name = _ensure_artist(db, me)
+    base_dims = _compose_dims(body.width, body.height, body.depth, body.unit or "cm")
+    aid = f"ex-{uuid.uuid4().hex[:10]}"
+    art = Artwork(
+        id=aid, title=body.title.strip(), narrative=body.narrative, description=body.narrative,
+        medium=body.medium, artist_id=slug, artist_name=name,
+        year=body.year or str(datetime.now().year),
+        price=float(body.price), category_id=body.category_id,
+        width=body.width, height=body.height, depth=body.depth, base_dimensions=base_dims,
+        customizable=False, images=body.images or [],
+        # Exhibition pieces are curated through the show itself → live immediately,
+        # but flagged so they never surface in the public collection/store.
+        status="active", in_stock=True, exhibition_id=ex.id,
+    )
+    db.add(art)
     db.commit()
-    return list(existing)
+    db.refresh(art)
+    return art
 
 
-@router.delete("/current/submit/{artwork_id}", status_code=204)
-def withdraw_from_current(artwork_id: str, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
+@router.delete("/current/artworks/{artwork_id}", status_code=204)
+def withdraw_artwork(artwork_id: str, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
+    """Withdraw (delete) one of the caller's exhibition pieces during registration."""
     ex = _active_exhibition(db)
     if not ex or _phase(ex) != "registration":
         raise HTTPException(status_code=400, detail="Registration is closed — submissions are locked")
-    sub = db.scalar(
-        select(ExhibitionSubmission).where(
-            ExhibitionSubmission.exhibition_id == ex.id,
-            ExhibitionSubmission.user_id == me.id,
-            ExhibitionSubmission.artwork_id == artwork_id,
-        )
-    )
-    if sub:
-        db.delete(sub)
+    art = db.get(Artwork, artwork_id)
+    if art and art.exhibition_id == ex.id and (_is_admin(me) or art.artist_id == _artist_slug(me)):
+        db.delete(art)
         db.commit()
     return None
 
@@ -217,18 +235,9 @@ def end_exhibition(exhibition_id: uuid.UUID, db: Session = Depends(get_db), _adm
 
 @router.get("/{exhibition_id}/submissions")
 def list_submissions(exhibition_id: uuid.UUID, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
-    rows = db.scalars(
-        select(ExhibitionSubmission).where(ExhibitionSubmission.exhibition_id == exhibition_id)
-        .order_by(ExhibitionSubmission.created_at)
-    ).all()
-    out = []
-    for s in rows:
-        art = db.get(Artwork, s.artwork_id)
-        out.append({
-            "id": str(s.id), "artwork_id": s.artwork_id,
-            "title": art.title if art else s.artwork_id,
-            "artist_name": art.artist_name if art else None,
-            "image": (art.images[0] if art and art.images else None),
-            "status": art.status if art else "missing",
-        })
-    return out
+    arts = _exhibition_artworks(db, exhibition_id, active_only=False)
+    return [{
+        "id": a.id, "artwork_id": a.id, "title": a.title,
+        "artist_name": a.artist_name, "price": float(a.price or 0),
+        "image": (a.images[0] if a.images else None), "status": a.status,
+    } for a in arts]
