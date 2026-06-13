@@ -10,6 +10,7 @@ from .review import Review, OwnedArtwork  # noqa: F401
 from .competition import ArtistKyc, Competition, CompetitionEntry, JuryVerdict  # noqa: F401
 from .site import Event, EventRegistration, ContactMessage, SupportTicket  # noqa: F401
 from .community import CommunityPost, PostComment, PostLike, ChatRoom, RoomMessage  # noqa: F401
+from .exhibition import Exhibition, ExhibitionSubmission  # noqa: F401
 
 __all__ = [
     "User", "Profile", "Category", "Artist", "Artwork", "ArtworkSize",
@@ -19,4 +20,5 @@ __all__ = [
     "ArtistKyc", "Competition", "CompetitionEntry", "JuryVerdict",
     "Event", "EventRegistration", "ContactMessage", "SupportTicket",
     "CommunityPost", "PostComment", "PostLike", "ChatRoom", "RoomMessage",
+    "Exhibition", "ExhibitionSubmission",
 ]

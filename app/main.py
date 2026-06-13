@@ -15,7 +15,7 @@ from . import models  # noqa: F401  (ensures all tables are registered on Base)
 from .routers import (
     auth, uploads, categories, artworks, artists, chat,
     enquiries, cart, orders, deliveries, reviews,
-    competitions, community, events, support, admin,
+    competitions, community, events, support, admin, exhibitions,
 )
 from .database import SessionLocal
 from .models.user import User
@@ -44,6 +44,8 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT",
         "ALTER TABLE categories ADD COLUMN IF NOT EXISTS tabs JSONB",
         "ALTER TABLE categories ADD COLUMN IF NOT EXISTS pioneers JSONB",
+        # artworks.rejection_reason — feedback when an admin rejects a submission.
+        "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS rejection_reason TEXT",
     ]
     with engine.begin() as conn:
         for stmt in statements:
@@ -87,6 +89,7 @@ app.include_router(community.router)
 app.include_router(events.router)
 app.include_router(support.router)
 app.include_router(admin.router)
+app.include_router(exhibitions.router)
 
 
 @app.get("/health", tags=["meta"])

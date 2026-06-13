@@ -42,7 +42,8 @@ def stats(db: Session = Depends(get_db), _admin: User = Depends(require_role("ad
         "recent_artworks": count(Artwork, Artwork.created_at >= week_ago),
         "contact_messages": count(ContactMessage),
         "open_tickets": count(SupportTicket, SupportTicket.status == "open"),
-        "pending_artists": count(ArtistKyc, ArtistKyc.status == "unverified"),
+        "pending_artists": count(ArtistKyc, ArtistKyc.status.in_(("pending", "unverified"))),
+        "pending_artworks": count(Artwork, Artwork.status == "pending"),
     }
 
 
@@ -62,7 +63,7 @@ def analytics(db: Session = Depends(get_db), _admin: User = Depends(require_role
         "artists": {
             "kyc_total": count(ArtistKyc),
             "verified": count(ArtistKyc, ArtistKyc.status == "verified"),
-            "unverified": count(ArtistKyc, ArtistKyc.status == "unverified"),
+            "unverified": count(ArtistKyc, ArtistKyc.status.in_(("pending", "unverified"))),
         },
         "artworks": {
             "total": artworks_total, "customizable": customizable,
@@ -301,7 +302,7 @@ def create_jury(body: dict, db: Session = Depends(get_db), _admin: User = Depend
 
 @router.post("/artists/{user_id}/verify")
 def verify_artist(user_id: uuid.UUID, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
-    """Admin shortcut to verify an artist without the competition (e.g. direct invite)."""
+    """Approve an artist application → grant dashboard / selling access."""
     kyc = db.scalar(select(ArtistKyc).where(ArtistKyc.user_id == user_id))
     if kyc:
         kyc.status = "verified"
@@ -309,6 +310,21 @@ def verify_artist(user_id: uuid.UUID, db: Session = Depends(get_db), _admin: Use
     if prof:
         prof.artist_status = "verified"
         prof.role = "artist"
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/artists/{user_id}/reject")
+def reject_artist(user_id: uuid.UUID, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    """Decline (or revoke) an artist application — sends them back to a plain user."""
+    kyc = db.scalar(select(ArtistKyc).where(ArtistKyc.user_id == user_id))
+    if kyc:
+        kyc.status = "rejected"
+    prof = db.scalar(select(Profile).where(Profile.user_id == user_id))
+    if prof:
+        prof.artist_status = "rejected"
+        if prof.role == "artist":
+            prof.role = "user"
     db.commit()
     return {"ok": True}
 

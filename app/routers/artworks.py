@@ -40,7 +40,9 @@ def list_artworks(
     q: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    stmt = select(Artwork)
+    # Public listing: only approved, sellable works. Pending/rejected/draft are
+    # never shown here (admin uses /artworks/pending; artists use /artworks/mine).
+    stmt = select(Artwork).where(Artwork.status == "active")
     if category:
         stmt = stmt.where(Artwork.category_id == category)
     if subtype:
@@ -64,10 +66,18 @@ def list_artworks(
 
 @router.get("/mine", response_model=list[ArtworkOut])
 def my_artworks(db: Session = Depends(get_db), me: User = Depends(get_current_user)):
-    """The logged-in artist's own works (for the artist dashboard)."""
+    """The logged-in artist's own works (for the artist dashboard) — all statuses."""
     slug = _artist_slug(me)
     return list(db.scalars(
         select(Artwork).where(Artwork.artist_id == slug).order_by(Artwork.created_at.desc())
+    ).all())
+
+
+@router.get("/pending", response_model=list[ArtworkOut])
+def pending_artworks(db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    """Admin approval queue: every artwork awaiting review."""
+    return list(db.scalars(
+        select(Artwork).where(Artwork.status == "pending").order_by(Artwork.created_at.desc())
     ).all())
 
 
@@ -144,7 +154,8 @@ def create_artwork(body: ArtworkCreateIn, db: Session = Depends(get_db), me: Use
         frame_options=body.frame_options, finish_options=body.finish_options,
         palette_options=body.palette_options,
         images=body.images or [], videos=body.videos or [], model_3d_url=body.model_3d_url,
-        status="active", in_stock=True,
+        # Every new submission — artist's or admin's — awaits approval before going public.
+        status="pending", in_stock=True,
     )
     db.add(art)
     db.flush()
@@ -166,7 +177,7 @@ _ARTIST_EDITABLE = {
     "min_width", "max_width", "min_height", "max_height", "min_depth", "max_depth",
     "frame_options", "finish_options", "palette_options",
 }
-_ADMIN_ONLY = {"status", "featured"}
+_ADMIN_ONLY = {"status", "featured", "rejection_reason"}
 
 
 @router.patch("/{artwork_id}", response_model=ArtworkOut)

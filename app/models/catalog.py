@@ -89,7 +89,9 @@ class Artwork(Base):
     frame_options:   Mapped[list | None] = mapped_column(JSONB, nullable=True)
     finish_options:  Mapped[list | None] = mapped_column(JSONB, nullable=True)
     palette_options: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    status: Mapped[str] = mapped_column(String, default="active")  # draft|active|sold
+    # pending (awaiting admin approval) | active (approved, public) | rejected | draft | sold
+    status: Mapped[str] = mapped_column(String, default="active")
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     featured: Mapped[bool] = mapped_column(Boolean, default=False)
     in_stock: Mapped[bool] = mapped_column(Boolean, default=True)
 
