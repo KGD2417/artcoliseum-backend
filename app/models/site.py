@@ -62,6 +62,17 @@ class SupportTicket(Base):
     videos: Mapped[list] = mapped_column(JSONB, default=list)
 
 
+class NewsItem(Base):
+    """Admin-authored news / announcements shown on the home page."""
+    __tablename__ = "news"
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    link_url: Mapped[str | None] = mapped_column(String, nullable=True)   # optional "read more" link
+    published: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)            # lower shows first (then newest)
+
+
 class Testimonial(Base):
     """Admin-authored collector testimonials shown on the home page."""
     __tablename__ = "testimonials"

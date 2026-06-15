@@ -8,7 +8,7 @@ from .commerce import (  # noqa: F401
 )
 from .review import Review, OwnedArtwork  # noqa: F401
 from .competition import ArtistKyc, Competition, CompetitionEntry, JuryVerdict  # noqa: F401
-from .site import Event, EventRegistration, ContactMessage, SupportTicket, Testimonial  # noqa: F401
+from .site import Event, EventRegistration, ContactMessage, SupportTicket, Testimonial, NewsItem  # noqa: F401
 from .community import CommunityPost, PostComment, PostLike, ChatRoom, RoomMessage, Bid  # noqa: F401
 from .exhibition import Exhibition, ExhibitionSubmission  # noqa: F401
 
@@ -18,7 +18,7 @@ __all__ = [
     "Cart", "CartItem", "Order", "OrderItem", "Delivery", "DeliveryEvent", "DeliveryOTP",
     "Review", "OwnedArtwork",
     "ArtistKyc", "Competition", "CompetitionEntry", "JuryVerdict",
-    "Event", "EventRegistration", "ContactMessage", "SupportTicket", "Testimonial",
+    "Event", "EventRegistration", "ContactMessage", "SupportTicket", "Testimonial", "NewsItem",
     "CommunityPost", "PostComment", "PostLike", "ChatRoom", "RoomMessage", "Bid",
     "Exhibition", "ExhibitionSubmission",
 ]

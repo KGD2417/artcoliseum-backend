@@ -288,6 +288,19 @@ class TicketIn(BaseModel):
     videos: list[str] = []
 
 
+# ── News (admin-authored, shown on the home page) ────────────────────────────
+class NewsOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    title: str
+    summary: str | None = None
+    image_url: str | None = None
+    link_url: str | None = None
+    published: bool = True
+    sort_order: int = 0
+    created_at: datetime
+
+
 # ── Testimonials (admin-authored, shown on the home page) ─────────────────────
 class TestimonialOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

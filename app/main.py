@@ -16,7 +16,7 @@ from .routers import (
     auth, uploads, categories, artworks, artists, chat,
     enquiries, cart, orders, deliveries, reviews,
     competitions, community, events, support, admin, exhibitions,
-    testimonials,
+    testimonials, news,
 )
 from .database import SessionLocal
 from .models.user import User
@@ -122,6 +122,7 @@ app.include_router(support.router)
 app.include_router(admin.router)
 app.include_router(exhibitions.router)
 app.include_router(testimonials.router)
+app.include_router(news.router)
 
 
 @app.get("/health", tags=["meta"])
