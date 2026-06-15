@@ -18,6 +18,12 @@ from ..utils import pricing
 router = APIRouter(prefix="/cart", tags=["cart"])
 
 
+def _dims_str(w, h, d, unit) -> str | None:
+    """Format width/height/(depth) + unit as a display string, e.g. '90 × 120 cm'."""
+    nums = [f"{float(x):g}" for x in (w, h, d) if x is not None]
+    return f"{' × '.join(nums)} {unit or 'cm'}" if nums else None
+
+
 def _get_or_create_cart(db: Session, user: User) -> Cart:
     cart = db.scalar(select(Cart).where(Cart.user_id == user.id))
     if not cart:
@@ -38,10 +44,12 @@ def _breakdown(db: Session, cart: Cart) -> CartBreakdownOut:
         s = float(it.setup_cost)
         art_sub += ap; t_sub += t; s_sub += s
         size_label = None
+        size_dimensions = None
         if it.size_id:
             sz = db.get(ArtworkSize, it.size_id)
             if sz:
                 size_label = sz.label
+                size_dimensions = _dims_str(sz.width, sz.height, sz.depth, sz.unit)
         details.append(CartItemDetail(
             id=it.id, artwork_id=it.artwork_id, artwork_price=ap, fulfillment=it.fulfillment,
             transport_cost=t, setup_cost=s, qty=it.qty,
@@ -51,11 +59,18 @@ def _breakdown(db: Session, cart: Cart) -> CartBreakdownOut:
             line_total=ap + t + s,
             customizable=bool(art.customizable) if art else False,
             size_label=size_label,
+            size_dimensions=size_dimensions,
             custom_width=float(it.custom_width) if it.custom_width is not None else None,
             custom_height=float(it.custom_height) if it.custom_height is not None else None,
             custom_depth=float(it.custom_depth) if it.custom_depth is not None else None,
             custom_unit=it.custom_unit,
             options=it.options or None,
+            # The artwork's own size, for display when no custom dimensions were chosen.
+            base_dimensions=(art.base_dimensions if art else None),
+            width=float(art.width) if (art and art.width is not None) else None,
+            height=float(art.height) if (art and art.height is not None) else None,
+            depth=float(art.depth) if (art and art.depth is not None) else None,
+            unit=(art.unit if art else None),
         ))
     gst = pricing.gst(art_sub)
     return CartBreakdownOut(

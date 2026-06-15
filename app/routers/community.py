@@ -255,12 +255,16 @@ def list_bids(post_id: uuid.UUID, db: Session = Depends(get_db)):
 
 @router.post("/posts/{post_id}/bids", response_model=PostOut)
 def place_bid(post_id: uuid.UUID, body: BidIn, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
-    p = db.get(CommunityPost, post_id)
+    # Lock the listing row for this transaction so simultaneous bids serialise:
+    # the second bidder blocks until the first commits, then re-reads the now
+    # higher top bid and is validated against it — so two equal "winning" bids
+    # can never both be accepted. (Postgres FOR UPDATE; a no-op but still safe
+    # on SQLite, which serialises writes globally.)
+    p = db.scalar(select(CommunityPost).where(CommunityPost.id == post_id).with_for_update())
     if not p:
         raise HTTPException(status_code=404, detail="Post not found")
     if not p.is_auction:
         raise HTTPException(status_code=400, detail="This listing is not an auction")
-    _finalize_if_ended(db, p)
     if _auction_ended(p):
         raise HTTPException(status_code=400, detail="This auction has ended")
     if p.user_id == me.id:
@@ -291,7 +295,9 @@ def place_bid(post_id: uuid.UUID, body: BidIn, db: Session = Depends(get_db), me
 @router.post("/posts/{post_id}/close", response_model=PostOut)
 def close_auction(post_id: uuid.UUID, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
     """Seller (or admin) ends the auction now and awards the highest bidder."""
-    p = db.get(CommunityPost, post_id)
+    # Lock the row so closing waits for any in-flight bid to commit first,
+    # guaranteeing we award the true highest bid (no lost last-second bid).
+    p = db.scalar(select(CommunityPost).where(CommunityPost.id == post_id).with_for_update())
     if not p:
         raise HTTPException(status_code=404, detail="Post not found")
     if not p.is_auction:

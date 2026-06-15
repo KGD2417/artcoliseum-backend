@@ -99,11 +99,18 @@ class CartItemDetail(CartItemOut):
     customizable: bool = False
     # What the buyer selected — shown in the cart.
     size_label: str | None = None       # predefined-size label
+    size_dimensions: str | None = None  # the chosen predefined size's dimensions, e.g. "90 × 120 cm"
     custom_width:  float | None = None
     custom_height: float | None = None
     custom_depth:  float | None = None
     custom_unit:   str | None = None
     options: dict | None = None         # {frame, finish, palette}
+    # The artwork's own dimensions (shown when the buyer didn't pick a custom size).
+    base_dimensions: str | None = None  # pre-formatted display string, e.g. "60 × 90 cm"
+    width:  float | None = None
+    height: float | None = None
+    depth:  float | None = None
+    unit:   str | None = None
 
 
 class CartBreakdownOut(BaseModel):
