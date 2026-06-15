@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, Integer
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..database import Base
@@ -39,8 +40,12 @@ class ContactMessage(Base):
     __tablename__ = "contact_messages"
     name: Mapped[str] = mapped_column(String, nullable=False)
     email: Mapped[str] = mapped_column(String, nullable=False)
+    phone: Mapped[str | None] = mapped_column(String, nullable=True)
     subject: Mapped[str | None] = mapped_column(String, nullable=True)
     message: Mapped[str] = mapped_column(Text, nullable=False)
+    # Optional attachments the sender included for context.
+    images: Mapped[list] = mapped_column(JSONB, default=list)
+    videos: Mapped[list] = mapped_column(JSONB, default=list)
 
 
 class SupportTicket(Base):
@@ -48,9 +53,13 @@ class SupportTicket(Base):
     user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     name: Mapped[str | None] = mapped_column(String, nullable=True)
     email: Mapped[str] = mapped_column(String, nullable=False)
+    phone: Mapped[str | None] = mapped_column(String, nullable=True)
     subject: Mapped[str | None] = mapped_column(String, nullable=True)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String, default="open")  # open|in_progress|resolved|closed
+    # Optional attachments the sender included for context.
+    images: Mapped[list] = mapped_column(JSONB, default=list)
+    videos: Mapped[list] = mapped_column(JSONB, default=list)
 
 
 class Testimonial(Base):

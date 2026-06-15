@@ -68,6 +68,13 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS auction_ends_at TIMESTAMPTZ",
         "ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS auction_closed BOOLEAN DEFAULT FALSE",
         "ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS winner_user_id UUID",
+        # contact / support attachments — photos & videos sent for context.
+        "ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb",
+        "ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS videos JSONB DEFAULT '[]'::jsonb",
+        "ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS phone VARCHAR",
+        "ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb",
+        "ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS videos JSONB DEFAULT '[]'::jsonb",
+        "ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS phone VARCHAR",
     ]
     with engine.begin() as conn:
         for stmt in statements:

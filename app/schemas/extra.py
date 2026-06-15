@@ -270,15 +270,21 @@ class EventRegistrationIn(BaseModel):
 class ContactIn(BaseModel):
     name: str
     email: str
+    phone: str | None = None
     subject: str | None = None
     message: str
+    images: list[str] = []
+    videos: list[str] = []
 
 
 class TicketIn(BaseModel):
     name: str | None = None
     email: str
+    phone: str | None = None
     subject: str | None = None
     message: str
+    images: list[str] = []
+    videos: list[str] = []
 
 
 # ── Testimonials (admin-authored, shown on the home page) ─────────────────────

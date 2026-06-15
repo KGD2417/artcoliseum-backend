@@ -16,7 +16,10 @@ router = APIRouter(tags=["support"])
 
 @router.post("/contact", status_code=201)
 def contact(body: ContactIn, db: Session = Depends(get_db)):
-    db.add(ContactMessage(name=body.name, email=body.email, subject=body.subject, message=body.message))
+    db.add(ContactMessage(
+        name=body.name, email=body.email, phone=body.phone, subject=body.subject, message=body.message,
+        images=body.images or [], videos=body.videos or [],
+    ))
     db.commit()
     return {"ok": True}
 
@@ -24,12 +27,16 @@ def contact(body: ContactIn, db: Session = Depends(get_db)):
 @router.get("/contact")
 def list_contact(db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
     rows = db.scalars(select(ContactMessage).order_by(ContactMessage.created_at.desc())).all()
-    return [{"id": str(r.id), "name": r.name, "email": r.email, "subject": r.subject, "message": r.message, "created_at": r.created_at.isoformat()} for r in rows]
+    return [{"id": str(r.id), "name": r.name, "email": r.email, "phone": r.phone, "subject": r.subject, "message": r.message,
+             "images": r.images or [], "videos": r.videos or [], "created_at": r.created_at.isoformat()} for r in rows]
 
 
 @router.post("/support/tickets", status_code=201)
 def create_ticket(body: TicketIn, db: Session = Depends(get_db), me: User | None = Depends(get_optional_user)):
-    db.add(SupportTicket(user_id=(me.id if me else None), name=body.name, email=body.email, subject=body.subject, message=body.message))
+    db.add(SupportTicket(
+        user_id=(me.id if me else None), name=body.name, email=body.email, phone=body.phone, subject=body.subject, message=body.message,
+        images=body.images or [], videos=body.videos or [],
+    ))
     db.commit()
     return {"ok": True}
 
@@ -37,7 +44,8 @@ def create_ticket(body: TicketIn, db: Session = Depends(get_db), me: User | None
 @router.get("/support/tickets")
 def list_tickets(db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
     rows = db.scalars(select(SupportTicket).order_by(SupportTicket.created_at.desc())).all()
-    return [{"id": str(r.id), "name": r.name, "email": r.email, "subject": r.subject, "message": r.message, "status": r.status, "created_at": r.created_at.isoformat()} for r in rows]
+    return [{"id": str(r.id), "name": r.name, "email": r.email, "phone": r.phone, "subject": r.subject, "message": r.message,
+             "status": r.status, "images": r.images or [], "videos": r.videos or [], "created_at": r.created_at.isoformat()} for r in rows]
 
 
 @router.patch("/support/tickets/{ticket_id}")

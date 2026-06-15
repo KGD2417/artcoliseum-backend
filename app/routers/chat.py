@@ -136,6 +136,26 @@ def mark_read(body: ChatReadIn, db: Session = Depends(get_db), me: User = Depend
     return None
 
 
+@router.get("/names")
+def names(ids: str = Query(""), db: Session = Depends(get_db), me: User = Depends(get_current_user)):
+    """Resolve a comma-separated list of user IDs to display names (for labelling
+    direct-message threads with the other person's name instead of 'Direct message')."""
+    out: dict[str, str] = {}
+    for raw in (ids or "").split(","):
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            uid = uuid.UUID(raw)
+        except ValueError:
+            continue
+        u = db.get(User, uid)
+        if not u:
+            continue
+        out[str(uid)] = (u.profile.full_name if (u.profile and u.profile.full_name) else u.email.split("@")[0])
+    return out
+
+
 @router.get("/peers", response_model=list[PeerOut])
 def peers(db: Session = Depends(get_db), me: User = Depends(get_current_user)):
     if not (me.profile and me.profile.role in ("artist", "admin")):
