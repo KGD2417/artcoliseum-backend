@@ -24,6 +24,7 @@ class KycIn(BaseModel):
 class ArtistStatusOut(BaseModel):
     artist_status: str
     role: str
+    rejection_reason: str | None = None
 
 
 # ── Competitions ─────────────────────────────────────────────────────────────

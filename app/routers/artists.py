@@ -24,14 +24,15 @@ def apply_artist(body: KycIn, db: Session = Depends(get_db), me: User = Depends(
         kyc.gender = body.gender
         if kyc.status not in ("verified",):
             kyc.status = "pending"
+            kyc.rejection_reason = None  # fresh application clears the old decline note
     else:
         db.add(ArtistKyc(
             user_id=me.id, name=body.name, age=body.age, art_type=body.art_type,
             location=body.location, about=body.about, avatar_url=body.avatar_url,
             gender=body.gender, status="pending",
         ))
-    # none → pending (awaiting approval). Never downgrade an already-verified artist.
-    if me.profile and me.profile.artist_status in ("none", "unverified"):
+    # none/unverified/rejected → pending (awaiting approval). Never downgrade a verified artist.
+    if me.profile and me.profile.artist_status in ("none", "unverified", "rejected"):
         me.profile.artist_status = "pending"
     db.commit()
     return ArtistStatusOut(
@@ -41,10 +42,16 @@ def apply_artist(body: KycIn, db: Session = Depends(get_db), me: User = Depends(
 
 
 @router.get("/me/status", response_model=ArtistStatusOut)
-def my_status(me: User = Depends(get_current_user)):
+def my_status(db: Session = Depends(get_db), me: User = Depends(get_current_user)):
+    status = me.profile.artist_status if me.profile else "none"
+    reason = None
+    if status == "rejected":
+        kyc = db.scalar(select(ArtistKyc).where(ArtistKyc.user_id == me.id))
+        reason = kyc.rejection_reason if kyc else None
     return ArtistStatusOut(
-        artist_status=me.profile.artist_status if me.profile else "none",
+        artist_status=status,
         role=me.profile.role if me.profile else "user",
+        rejection_reason=reason,
     )
 
 

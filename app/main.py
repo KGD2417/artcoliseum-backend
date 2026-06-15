@@ -75,6 +75,8 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb",
         "ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS videos JSONB DEFAULT '[]'::jsonb",
         "ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS phone VARCHAR",
+        # artist_kyc.rejection_reason — feedback shown to a rejected applicant.
+        "ALTER TABLE artist_kyc ADD COLUMN IF NOT EXISTS rejection_reason TEXT",
     ]
     with engine.begin() as conn:
         for stmt in statements:

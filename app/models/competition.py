@@ -19,8 +19,10 @@ class ArtistKyc(Base):
     about: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
     gender: Mapped[str | None] = mapped_column(String, nullable=True)  # male | female | other
-    # unverified | verified
+    # unverified | pending | verified | rejected
     status: Mapped[str] = mapped_column(String, default="unverified")
+    # Why an application was declined — shown to the artist so they can reapply.
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class Competition(Base):

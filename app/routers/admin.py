@@ -243,7 +243,9 @@ def list_artist_kyc(db: Session = Depends(get_db), _admin: User = Depends(requir
         out.append({
             "user_id": str(k.user_id), "name": k.name, "email": u.email if u else None,
             "age": k.age, "art_type": k.art_type, "location": k.location, "about": k.about,
-            "status": k.status, "role": (u.profile.role if u and u.profile else "user"),
+            "avatar_url": k.avatar_url, "gender": k.gender,
+            "status": k.status, "rejection_reason": k.rejection_reason,
+            "role": (u.profile.role if u and u.profile else "user"),
         })
     return out
 
@@ -315,11 +317,14 @@ def verify_artist(user_id: uuid.UUID, db: Session = Depends(get_db), _admin: Use
 
 
 @router.post("/artists/{user_id}/reject")
-def reject_artist(user_id: uuid.UUID, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
-    """Decline (or revoke) an artist application — sends them back to a plain user."""
+def reject_artist(user_id: uuid.UUID, body: dict | None = None, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    """Decline (or revoke) an artist application — sends them back to a plain user.
+    An optional `reason` is stored and shown to the applicant so they can reapply."""
+    reason = (body or {}).get("reason") or None
     kyc = db.scalar(select(ArtistKyc).where(ArtistKyc.user_id == user_id))
     if kyc:
         kyc.status = "rejected"
+        kyc.rejection_reason = reason
     prof = db.scalar(select(Profile).where(Profile.user_id == user_id))
     if prof:
         prof.artist_status = "rejected"
