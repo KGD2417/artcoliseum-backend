@@ -7,6 +7,7 @@ from xml.sax.saxutils import escape as _xesc
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -332,6 +333,48 @@ def reject_artist(user_id: uuid.UUID, body: dict | None = None, db: Session = De
             prof.role = "user"
     db.commit()
     return {"ok": True}
+
+
+@router.delete("/artists/{user_id}")
+def delete_artist(user_id: uuid.UUID, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    """Permanently remove an artist: deletes their artworks, catalog profile,
+    KYC record and login account. A piece that is tied to an existing
+    order/enquiry/review can't be hard-deleted (the DB references it) — those
+    are taken offline instead so the removal never gets stuck. Order history is
+    preserved (the order's user link is nulled, the rows are not removed)."""
+    slug = _artist_slug(user_id)
+
+    # 1. Remove their artworks. Delete where possible; for any piece referenced
+    #    elsewhere, fall back to hiding it from the public site.
+    deleted = hidden = 0
+    works = db.scalars(select(Artwork).where(Artwork.artist_id == slug)).all()
+    for art in works:
+        try:
+            with db.begin_nested():
+                db.delete(art)
+            deleted += 1
+        except IntegrityError:
+            art.status = "rejected"
+            art.in_stock = False
+            art.artist_id = None
+            hidden += 1
+
+    # 2. Drop the catalog Artist profile (removes them from the public listing).
+    artist = db.get(Artist, slug)
+    if artist:
+        db.delete(artist)
+
+    # 3. Remove the KYC record and the login account. Deleting the user cascades
+    #    their profile, chat, cart and enquiries; orders keep a null user link.
+    kyc = db.scalar(select(ArtistKyc).where(ArtistKyc.user_id == user_id))
+    if kyc:
+        db.delete(kyc)
+    user = db.get(User, user_id)
+    if user:
+        db.delete(user)
+
+    db.commit()
+    return {"ok": True, "artworks_deleted": deleted, "artworks_hidden": hidden}
 
 
 @router.patch("/profiles/{user_id}/role")
