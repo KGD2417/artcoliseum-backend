@@ -20,5 +20,12 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     FRONTEND_ORIGIN: str = "http://localhost:5173"
 
+    # External art-news feed shown in Admin → News (admin picks which to publish).
+    # provider: guardian (free, art-focused) | gnews | newsdata.
+    # Get a free API key from the chosen provider and set NEWS_API_KEY.
+    NEWS_API_PROVIDER: str = "guardian"
+    NEWS_API_KEY: str = ""
+    NEWS_API_QUERY: str = "art"  # used by gnews / newsdata search
+
 
 settings = Settings()
