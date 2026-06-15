@@ -16,6 +16,7 @@ from .routers import (
     auth, uploads, categories, artworks, artists, chat,
     enquiries, cart, orders, deliveries, reviews,
     competitions, community, events, support, admin, exhibitions,
+    testimonials,
 )
 from .database import SessionLocal
 from .models.user import User
@@ -60,6 +61,13 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE events ADD COLUMN IF NOT EXISTS maps_url VARCHAR",
         # artworks.exhibition_id — exhibition-only pieces (excluded from the store).
         "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS exhibition_id UUID",
+        # community_posts — marketplace listings can run as auctions (highest bid wins).
+        "ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS is_auction BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS starting_bid NUMERIC(12,2)",
+        "ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS min_increment NUMERIC(12,2) DEFAULT 0",
+        "ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS auction_ends_at TIMESTAMPTZ",
+        "ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS auction_closed BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS winner_user_id UUID",
     ]
     with engine.begin() as conn:
         for stmt in statements:
@@ -104,6 +112,7 @@ app.include_router(events.router)
 app.include_router(support.router)
 app.include_router(admin.router)
 app.include_router(exhibitions.router)
+app.include_router(testimonials.router)
 
 
 @app.get("/health", tags=["meta"])

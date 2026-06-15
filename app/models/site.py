@@ -1,8 +1,8 @@
-"""Events, registrations, contact messages, support tickets."""
+"""Events, registrations, contact messages, support tickets, testimonials."""
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Text, ForeignKey, DateTime
+from sqlalchemy import String, Text, ForeignKey, DateTime, Boolean, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..database import Base
@@ -51,3 +51,15 @@ class SupportTicket(Base):
     subject: Mapped[str | None] = mapped_column(String, nullable=True)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String, default="open")  # open|in_progress|resolved|closed
+
+
+class Testimonial(Base):
+    """Admin-authored collector testimonials shown on the home page."""
+    __tablename__ = "testimonials"
+    name: Mapped[str] = mapped_column(String, nullable=False)          # collector / author
+    designation: Mapped[str | None] = mapped_column(String, nullable=True)  # e.g. "Private Collector · London"
+    quote: Mapped[str] = mapped_column(Text, nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    tag: Mapped[str | None] = mapped_column(String, nullable=True)     # small label above the name
+    published: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)        # ascending display order

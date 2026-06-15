@@ -190,6 +190,15 @@ class PostIn(BaseModel):
     title: str | None = None
     condition: str | None = None
     location: str | None = None
+    # auction (marketplace listings only)
+    is_auction: bool = False
+    starting_bid: float | None = None
+    min_increment: float | None = None
+    auction_ends_at: str | None = None   # ISO string; null = no deadline (manual close only)
+
+
+class BidIn(BaseModel):
+    amount: float
 
 
 class CommentIn(BaseModel):
@@ -214,6 +223,19 @@ class PostOut(BaseModel):
     likes: int = 0
     liked: bool = False
     comments: list[dict] = []
+    # auction state (computed in the router)
+    is_auction: bool = False
+    starting_bid: float | None = None
+    min_increment: float | None = None
+    auction_ends_at: datetime | None = None
+    auction_closed: bool = False
+    auction_ended: bool = False          # closed OR past the deadline
+    winner_user_id: uuid.UUID | None = None
+    winner_name: str | None = None
+    current_bid: float | None = None     # highest bid so far
+    bid_count: int = 0
+    top_bidder_id: uuid.UUID | None = None
+    bids: list[dict] = []                # [{user_id, bidder, amount, created_at}], highest first
 
 
 class RoomMessageIn(BaseModel):
@@ -257,3 +279,16 @@ class TicketIn(BaseModel):
     email: str
     subject: str | None = None
     message: str
+
+
+# ── Testimonials (admin-authored, shown on the home page) ─────────────────────
+class TestimonialOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+    designation: str | None = None
+    quote: str
+    image_url: str | None = None
+    tag: str | None = None
+    published: bool = True
+    sort_order: int = 0

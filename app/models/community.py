@@ -1,7 +1,8 @@
 """Community feed (posts, comments, likes, marketplace listings) + chat rooms."""
 import uuid
+from datetime import datetime
 
-from sqlalchemy import String, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import String, Text, ForeignKey, UniqueConstraint, Boolean, Numeric, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,6 +31,22 @@ class CommunityPost(Base):
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     condition: Mapped[str | None] = mapped_column(String, nullable=True)
     location: Mapped[str | None] = mapped_column(String, nullable=True)
+    # auction extras — a listing may run as an English auction (highest bid wins).
+    is_auction: Mapped[bool] = mapped_column(Boolean, default=False)
+    starting_bid: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    min_increment: Mapped[float | None] = mapped_column(Numeric(12, 2), default=0)
+    auction_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    auction_closed: Mapped[bool] = mapped_column(Boolean, default=False)  # manually ended or finalised
+    winner_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+
+class Bid(Base):
+    """A single offer on an auction listing. Highest amount wins at close."""
+    __tablename__ = "bids"
+    post_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("community_posts.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    bidder_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
 
 
 class PostComment(Base):
