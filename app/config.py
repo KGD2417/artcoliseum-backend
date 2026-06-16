@@ -51,5 +51,11 @@ class Settings(BaseSettings):
     SHIP_DEFAULT_BREADTH_CM: float = 30.0
     SHIP_DEFAULT_HEIGHT_CM: float = 10.0
 
+    # ── Gemini (AI Room Visualizer for the AR viewer, desktop/no-AR path) ──
+    # BILLING key — kept server-side only (never expose in the frontend bundle).
+    # Powers /ai/visualize, which composites an artwork into a room photo.
+    GEMINI_API_KEY: str = ""
+    GEMINI_IMAGE_MODEL: str = "gemini-2.5-flash-image"
+
 
 settings = Settings()
