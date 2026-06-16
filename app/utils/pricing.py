@@ -22,7 +22,7 @@ VAULT = {
 
 # Destination shipping zones by the first digit of the Indian PIN code, relative to
 # the Mumbai vault (PIN 4xxxxx). (label, eta_days_low, eta_days_high, delivery_fee ₹).
-# Structured so a real Blue Dart serviceability call can replace this table later.
+# Used as the fallback when Shiprocket isn't configured (or a PIN isn't serviceable).
 _PIN_ZONES = {
     "4": ("West & Central (local)", 2, 3, 0),
     "3": ("West", 3, 5, 400),
@@ -41,8 +41,30 @@ def gst(artwork_subtotal: float) -> float:
 
 
 def delivery_estimate(pincode: str | None) -> dict:
-    """Map a destination PIN to a shipping zone, ETA window and delivery fee."""
+    """Destination PIN → shipping zone, ETA window and delivery fee.
+
+    Prefers a live Shiprocket serviceability+rate lookup; falls back to the
+    static India-only PIN-zone table when Shiprocket isn't configured or the
+    PIN isn't serviceable. (Local import avoids a circular import at module load.)
+    """
+    from . import shipping
+
     pin = (pincode or "").strip()
+
+    live = shipping.serviceability(pin) if pin else None
+    if live and live.get("serviceable"):
+        lo, hi = live.get("eta_days_low"), live.get("eta_days_high")
+        return {
+            "zone": "Shiprocket",
+            "eta_days_low": lo,
+            "eta_days_high": hi,
+            "eta": live.get("eta") or (f"{lo}–{hi} business days" if lo else "—"),
+            "delivery_fee": float(live.get("delivery_fee") or 0),
+            "courier": live.get("courier") or "Shiprocket",
+            "serviceable": True,
+        }
+
+    # Fallback: static PIN-zone table (India only).
     digit = pin[0] if len(pin) >= 6 and pin[0].isdigit() else None
     label, lo, hi, fee = _PIN_ZONES.get(digit, ("Pan-India", 5, 8, 700))
     return {
@@ -51,7 +73,7 @@ def delivery_estimate(pincode: str | None) -> dict:
         "eta_days_high": hi,
         "eta": f"{lo}–{hi} business days",
         "delivery_fee": float(fee),
-        "courier": "Blue Dart",
+        "courier": "Shiprocket" if shipping.is_live() else "Blue Dart",
         "serviceable": digit is not None,
     }
 

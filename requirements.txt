@@ -8,3 +8,5 @@ python-jose[cryptography]
 pydantic-settings
 python-multipart
 email-validator
+razorpay
+httpx

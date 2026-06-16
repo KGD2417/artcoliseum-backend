@@ -27,5 +27,29 @@ class Settings(BaseSettings):
     NEWS_API_KEY: str = ""
     NEWS_API_QUERY: str = "art"  # used by gnews / newsdata search
 
+    # ── Razorpay (payments) ───────────────────────────────────────────────
+    # Leave blank to use the built-in demo payment flow (no real charge).
+    # Test keys start with rzp_test_, live keys with rzp_live_.
+    # The webhook secret is what you set in the Razorpay dashboard webhook.
+    # See INTEGRATIONS.md.
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+
+    # ── Shiprocket (shipping) ─────────────────────────────────────────────
+    # Leave blank to use the static PIN-zone fallback table. India-only for now.
+    SHIPROCKET_EMAIL: str = ""
+    SHIPROCKET_PASSWORD: str = ""
+    # Origin of every shipment (the Mumbai vault). PIN drives rate lookups;
+    # PICKUP_LOCATION is the pickup-address *nickname* registered in Shiprocket.
+    SHIPROCKET_PICKUP_PINCODE: str = "400001"
+    SHIPROCKET_PICKUP_LOCATION: str = "Primary"
+    # Default parcel weight/dimensions used for rate + shipment when an item
+    # carries no measured packaging data of its own.
+    SHIP_DEFAULT_WEIGHT_KG: float = 2.0
+    SHIP_DEFAULT_LENGTH_CM: float = 40.0
+    SHIP_DEFAULT_BREADTH_CM: float = 30.0
+    SHIP_DEFAULT_HEIGHT_CM: float = 10.0
+
 
 settings = Settings()

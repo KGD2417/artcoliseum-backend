@@ -1,9 +1,10 @@
-"""Orders: create from cart, dummy payment, admin status."""
+"""Orders: create from cart, Razorpay payment (verify + webhook), admin status."""
+import json
 import random
 import string
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,8 +15,8 @@ from ..models.catalog import Artwork
 from ..models.enquiry import BuyApproval
 from ..models.commerce import Cart, CartItem, Order, OrderItem, Delivery, DeliveryEvent
 from ..models.review import OwnedArtwork
-from ..schemas.commerce import OrderCreateIn, OrderOut
-from ..utils import pricing
+from ..schemas.commerce import OrderCreateIn, OrderOut, PaymentVerifyIn
+from ..utils import pricing, payments, shipping
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -28,8 +29,62 @@ def _tracking_id() -> str:
     )
 
 
-def _order_out(db: Session, order: Order) -> Order:
+def _order_out(db: Session, order: Order, rzp: dict | None = None) -> Order:
+    """Attach line items + the Razorpay checkout handoff (non-persistent, read by
+    the OrderOut schema). ``rzp`` is the freshly-created Razorpay order, if any;
+    otherwise we recover the id from payment_meta."""
     order.items = db.scalars(select(OrderItem).where(OrderItem.order_id == order.id)).all()
+    meta = order.payment_meta or {}
+    order.razorpay_order_id = (rzp or {}).get("id") or meta.get("razorpay_order_id")
+    order.razorpay_key_id = payments.key_id() if order.razorpay_order_id else None
+    order.amount_due = (rzp or {}).get("amount")
+    return order
+
+
+def _finalize_paid(db: Session, order: Order, *, payment_id: str, meta: dict) -> Order:
+    """Idempotent post-payment fulfillment, shared by the Razorpay verify call,
+    the webhook, and the dev simulate endpoint: mark the order paid, book a
+    delivery (real Shiprocket AWB when live, generated id otherwise) and grant
+    digital ownership."""
+    if order.status != "pending":
+        return order
+
+    order.status = "paid"
+    order.payment_id = payment_id
+    order.payment_meta = {**(order.payment_meta or {}), **meta}
+
+    addr = order.shipping_address or {}
+    est = pricing.delivery_estimate(addr.get("zip"))
+    items = db.scalars(select(OrderItem).where(OrderItem.order_id == order.id)).all()
+
+    # Book a real Shiprocket shipment when configured (gives a live AWB / courier);
+    # fall back to a generated tracking id for demo / self-pickup / on failure.
+    ship = shipping.create_shipment(order, items) if addr.get("zip") else None
+    tracking_id = (ship or {}).get("awb") or _tracking_id()
+    courier = (ship or {}).get("courier") or est.get("courier") or "Shiprocket"
+    if ship:
+        order.payment_meta = {**(order.payment_meta or {}), "shiprocket": ship}
+
+    delivery = Delivery(
+        order_id=order.id, tracking_id=tracking_id, stage="order_confirmed",
+        courier=courier, eta=est["eta"], current_location=pricing.VAULT["name"],
+    )
+    db.add(delivery)
+    db.flush()
+    db.add(DeliveryEvent(
+        delivery_id=delivery.id, stage="order_confirmed",
+        title="Order Confirmed", detail="Payment received. Curator assigned.",
+    ))
+
+    # Digital ownership granted immediately on payment.
+    for it in items:
+        art = db.get(Artwork, it.artwork_id) if it.artwork_id else None
+        db.add(OwnedArtwork(
+            user_id=order.user_id, artwork_id=it.artwork_id, order_id=order.id, kind="digital",
+            digital_asset_url=(art.images[0] if art and art.images else None),
+        ))
+    db.commit()
+    db.refresh(order)
     return order
 
 
@@ -92,44 +147,83 @@ def create_order(body: OrderCreateIn, db: Session = Depends(get_db), me: User = 
     order.breakdown = breakdown
     db.commit()
     db.refresh(order)
-    return _order_out(db, order)
+
+    # Create a matching Razorpay order so the client can open checkout. When
+    # Razorpay isn't configured this is None and the client falls back to the
+    # built-in demo payment overlay.
+    rzp = payments.create_order(
+        order.total, receipt=str(order.id),
+        notes={"order_id": str(order.id), "email": me.email or ""},
+    )
+    if rzp:
+        order.payment_meta = {**(order.payment_meta or {}), "razorpay_order_id": rzp["id"]}
+        db.commit()
+        db.refresh(order)
+    return _order_out(db, order, rzp=rzp)
 
 
-@router.post("/{order_id}/pay", response_model=OrderOut)
-def pay(order_id: uuid.UUID, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
-    """Dummy payment — marks the order paid, opens a delivery, grants digital ownership."""
+@router.post("/{order_id}/verify", response_model=OrderOut)
+def verify_payment(order_id: uuid.UUID, body: PaymentVerifyIn, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
+    """Verify a Razorpay checkout success payload, then fulfill the order."""
     order = db.get(Order, order_id)
     if not order or order.user_id != me.id:
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status != "pending":
         return _order_out(db, order)
 
-    order.status = "paid"
-    order.payment_id = "dummy_" + uuid.uuid4().hex[:12]
-    order.payment_meta = {"provider": order.payment_provider, "dummy": True}
+    expected = (order.payment_meta or {}).get("razorpay_order_id")
+    if not expected or body.razorpay_order_id != expected:
+        raise HTTPException(status_code=400, detail="Order mismatch")
+    if not payments.verify_payment_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
+        raise HTTPException(status_code=400, detail="Payment verification failed")
 
-    est = pricing.delivery_estimate((order.shipping_address or {}).get("zip"))
-    delivery = Delivery(
-        order_id=order.id, tracking_id=_tracking_id(), stage="order_confirmed",
-        courier="Blue Dart", eta=est["eta"], current_location=pricing.VAULT["name"],
-    )
-    db.add(delivery)
-    db.flush()
-    db.add(DeliveryEvent(
-        delivery_id=delivery.id, stage="order_confirmed",
-        title="Order Confirmed", detail="Payment received. Curator assigned.",
-    ))
+    order = _finalize_paid(db, order, payment_id=body.razorpay_payment_id, meta={
+        "provider": "razorpay",
+        "razorpay_payment_id": body.razorpay_payment_id,
+        "razorpay_order_id": body.razorpay_order_id,
+    })
+    return _order_out(db, order)
 
-    # digital ownership granted immediately on payment
-    items = db.scalars(select(OrderItem).where(OrderItem.order_id == order.id)).all()
-    for it in items:
-        art = db.get(Artwork, it.artwork_id) if it.artwork_id else None
-        db.add(OwnedArtwork(
-            user_id=me.id, artwork_id=it.artwork_id, order_id=order.id, kind="digital",
-            digital_asset_url=(art.images[0] if art and art.images else None),
-        ))
-    db.commit()
-    db.refresh(order)
+
+@router.post("/razorpay/webhook")
+async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
+    """Server-to-server source of truth: fulfill on payment.captured / order.paid
+    even if the buyer's browser never returned. Verified via webhook secret."""
+    raw = await request.body()
+    sig = request.headers.get("X-Razorpay-Signature", "")
+    if not payments.verify_webhook_signature(raw.decode(), sig):
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    event = json.loads(raw or b"{}")
+    if event.get("event") in ("payment.captured", "order.paid"):
+        entity = (((event.get("payload") or {}).get("payment") or {}).get("entity")) or {}
+        rzp_order_id = entity.get("order_id")
+        payment_id = entity.get("id")
+        if rzp_order_id:
+            order = db.scalar(
+                select(Order).where(Order.payment_meta["razorpay_order_id"].astext == rzp_order_id)
+            )
+            if order and order.status == "pending":
+                _finalize_paid(db, order, payment_id=payment_id or "rzp_webhook", meta={
+                    "provider": "razorpay", "razorpay_payment_id": payment_id,
+                    "razorpay_order_id": rzp_order_id, "via": "webhook",
+                })
+    return {"status": "ok"}
+
+
+@router.post("/{order_id}/pay", response_model=OrderOut)
+def pay(order_id: uuid.UUID, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
+    """Dev-only simulate. Disabled once Razorpay is configured — real checkouts
+    must go through /verify (or the webhook)."""
+    if payments.is_live():
+        raise HTTPException(status_code=400, detail="Live payments enabled — complete checkout via Razorpay")
+    order = db.get(Order, order_id)
+    if not order or order.user_id != me.id:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != "pending":
+        return _order_out(db, order)
+    order = _finalize_paid(db, order, payment_id="dummy_" + uuid.uuid4().hex[:12],
+                           meta={"provider": order.payment_provider, "dummy": True})
     return _order_out(db, order)
 
 

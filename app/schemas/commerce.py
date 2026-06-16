@@ -165,10 +165,22 @@ class OrderOut(BaseModel):
     breakdown: list | None = None
     created_at: datetime
     items: list[OrderItemOut] = []
+    # Razorpay checkout handoff — present when Razorpay is configured. The client
+    # opens checkout with these; when absent it uses the built-in demo flow.
+    razorpay_order_id: str | None = None
+    razorpay_key_id: str | None = None
+    amount_due: int | None = None   # paise
 
     @field_validator("subtotal", "tax", "delivery_fee", "total", mode="before")
     @classmethod
     def _conv(cls, v): return _f(v)
+
+
+class PaymentVerifyIn(BaseModel):
+    """Razorpay checkout success payload, verified server-side before fulfillment."""
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
 
 
 # ── Deliveries ───────────────────────────────────────────────────────────────
