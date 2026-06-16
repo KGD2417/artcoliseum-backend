@@ -183,6 +183,62 @@ class PaymentVerifyIn(BaseModel):
     razorpay_signature: str
 
 
+# ── Artist sales dashboard ─────────────────────────────────────────────────────
+class PickupAddressIn(BaseModel):
+    """Artist's ship-from / pickup address."""
+    name: str
+    phone: str
+    line1: str
+    line2: str | None = None
+    city: str
+    state: str
+    zip: str
+    country: str = "India"
+
+
+class DispatchIn(BaseModel):
+    """Artist dispatching their own piece. Optional manual tracking when the
+    artist ships outside Shiprocket."""
+    tracking_id: str | None = None
+    courier: str | None = None
+
+
+class ArtistOrderOut(BaseModel):
+    """One sold piece shown in the artist's sales dashboard."""
+    order_item_id: uuid.UUID
+    order_id: uuid.UUID
+    artwork_id: str | None = None
+    title: str | None = None
+    image: str | None = None
+    price: float
+    qty: int
+    fulfillment: str | None = None
+    # Custom spec the buyer requested (so the artist knows what to make).
+    is_custom: bool = False
+    options: dict | None = None
+    custom_width: float | None = None
+    custom_height: float | None = None
+    custom_depth: float | None = None
+    custom_unit: str | None = None
+    order_status: str
+    created_at: datetime
+    # Buyer + ship-to address, so the artist can fulfill directly.
+    buyer_name: str | None = None
+    buyer_phone: str | None = None
+    shipping_address: dict | None = None
+    # Artist's own direct-ship dispatch state.
+    artist_dispatched: bool = False
+    artist_tracking: dict | None = None
+    # Order-level delivery snapshot.
+    delivery_stage: str | None = None
+    delivery_tracking_id: str | None = None
+    delivery_courier: str | None = None
+
+    @field_validator("price", "custom_width", "custom_height", "custom_depth", mode="before")
+    @classmethod
+    def _conv(cls, v): return _f(v)
+
+
 # ── Deliveries ───────────────────────────────────────────────────────────────
 class DeliveryEventOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

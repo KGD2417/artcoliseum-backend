@@ -57,9 +57,11 @@ def _finalize_paid(db: Session, order: Order, *, payment_id: str, meta: dict) ->
     est = pricing.delivery_estimate(addr.get("zip"))
     items = db.scalars(select(OrderItem).where(OrderItem.order_id == order.id)).all()
 
-    # Book a real Shiprocket shipment when configured (gives a live AWB / courier);
-    # fall back to a generated tracking id for demo / self-pickup / on failure.
-    ship = shipping.create_shipment(order, items) if addr.get("zip") else None
+    # Artist-owned pieces ship directly from the artist's address — they book the
+    # AWB from their dashboard, so we don't auto-book a vault shipment here.
+    # House/admin pieces (no artist_id) still auto-book from the vault when live.
+    has_artist_items = any(it.artist_id for it in items)
+    ship = shipping.create_shipment(order, items) if (addr.get("zip") and not has_artist_items) else None
     tracking_id = (ship or {}).get("awb") or _tracking_id()
     courier = (ship or {}).get("courier") or est.get("courier") or "Shiprocket"
     if ship:
@@ -130,8 +132,12 @@ def create_order(body: OrderCreateIn, db: Session = Depends(get_db), me: User = 
         art = db.get(Artwork, it.artwork_id)
         db.add(OrderItem(
             order_id=order.id, artwork_id=it.artwork_id,
+            artist_id=art.artist_id if art else None,
             title=art.title if art else None, price=it.artwork_price, qty=it.qty,
             fulfillment=it.fulfillment, transport_cost=it.transport_cost, setup_cost=it.setup_cost,
+            # Carry the buyer's custom spec through to the artist's order view.
+            options=it.options, custom_width=it.custom_width, custom_height=it.custom_height,
+            custom_depth=it.custom_depth, custom_unit=it.custom_unit,
         ))
         breakdown.append({
             "artwork_id": it.artwork_id, "title": art.title if art else None,

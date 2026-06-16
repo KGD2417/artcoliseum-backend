@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Numeric, Integer, ForeignKey, DateTime, func
+from sqlalchemy import String, Numeric, Integer, Boolean, ForeignKey, DateTime, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -61,12 +61,24 @@ class OrderItem(Base):
     __tablename__ = "order_items"
     order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
     artwork_id: Mapped[str | None] = mapped_column(ForeignKey("artworks.id"), nullable=True)
+    # Denormalized at order time so an artist's sales query is stable + cheap.
+    artist_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     qty: Mapped[int] = mapped_column(Integer, default=1)
     fulfillment: Mapped[str | None] = mapped_column(String, nullable=True)
     transport_cost: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     setup_cost: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    # Buyer's customization, copied from the cart so the artist sees exactly what
+    # to make (frame/finish/palette + requested dimensions).
+    options: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    custom_width:  Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    custom_height: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    custom_depth:  Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    custom_unit:   Mapped[str | None] = mapped_column(String, nullable=True)
+    # Artist-fulfilled dispatch (artist ships directly to the buyer).
+    artist_dispatched: Mapped[bool] = mapped_column(Boolean, default=False)
+    artist_tracking: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # {awb, courier, tracking_url, shipment_id}
 
 
 class Delivery(Base):

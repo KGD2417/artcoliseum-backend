@@ -77,6 +77,18 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS phone VARCHAR",
         # artist_kyc.rejection_reason — feedback shown to a rejected applicant.
         "ALTER TABLE artist_kyc ADD COLUMN IF NOT EXISTS rejection_reason TEXT",
+        # order_items — artist sales dashboard: who made it, the buyer's custom
+        # spec, and the artist's own direct-ship dispatch state.
+        "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS artist_id VARCHAR",
+        "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS options JSONB",
+        "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS custom_width NUMERIC(10,2)",
+        "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS custom_height NUMERIC(10,2)",
+        "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS custom_depth NUMERIC(10,2)",
+        "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS custom_unit VARCHAR",
+        "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS artist_dispatched BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS artist_tracking JSONB",
+        # profiles.pickup_address — artist's ship-from origin for direct fulfillment.
+        "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS pickup_address JSONB",
     ]
     with engine.begin() as conn:
         for stmt in statements:
