@@ -19,9 +19,12 @@ Razorpay Dashboard → **Settings → API Keys → Generate**. Use the `rzp_test
 pair while testing. Put them in `.env`:
 
 ```
-RAZORPAY_KEY_ID=rzp_test_T2DrUsQ1TS2cdu
-RAZORPAY_KEY_SECRET=aOxhA51QrO76eTeYK7IwQoEW
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxxxx
+RAZORPAY_KEY_SECRET=your_key_secret
 ```
+
+> ⚠️ Never put real keys in this file — it is tracked by git. Real values go in
+> `.env` (gitignored) locally and in the Railway env vars in production.
 
 ### 2. Webhook (recommended — server-side source of truth)
 Dashboard → **Settings → Webhooks → Add New Webhook**
@@ -30,7 +33,7 @@ Dashboard → **Settings → Webhooks → Add New Webhook**
 - Secret: any strong string — put the **same** value in `.env`:
 
 ```
-RAZORPAY_WEBHOOK_SECRET=aOxhA51QrO76eTeYK7IwQoEW
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
 ```
 
 ### Flow
@@ -56,8 +59,8 @@ Shiprocket panel → **Settings → API → Configure → Create an API User**
 (this is a *separate* login from your normal account). Then:
 
 ```
-SHIPROCKET_EMAIL=kshitijdesai179@gmail.com
-SHIPROCKET_PASSWORD=L3LEVOP2WuAy*^Q1#$jgwnSFoq7*p9jX
+SHIPROCKET_EMAIL=api-user@yourdomain.com
+SHIPROCKET_PASSWORD=your_api_user_password
 ```
 
 ### 2. Pickup location
