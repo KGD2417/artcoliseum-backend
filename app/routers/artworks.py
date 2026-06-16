@@ -180,8 +180,9 @@ def create_artwork(body: ArtworkCreateIn, db: Session = Depends(get_db), me: Use
         frame_options=body.frame_options, finish_options=body.finish_options,
         palette_options=body.palette_options,
         images=body.images or [], videos=body.videos or [], model_3d_url=body.model_3d_url,
-        # Every new submission — artist's or admin's — awaits approval before going public.
-        status="pending", in_stock=True,
+        # Admin uploads go live immediately (the admin IS the approver); an
+        # artist's own submission still awaits admin approval before going public.
+        status=("active" if role == "admin" else "pending"), in_stock=True,
     )
     db.add(art)
     db.flush()

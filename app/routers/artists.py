@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -228,9 +228,29 @@ def dispatch_order_item(order_item_id: uuid.UUID, body: DispatchIn, db: Session 
     return _artist_order_out(db, it, order, delivery)
 
 
+def _live_count(db: Session, artist_id: str) -> int:
+    return db.scalar(
+        select(func.count()).where(
+            Artwork.artist_id == artist_id,
+            Artwork.status == "active",
+            Artwork.exhibition_id.is_(None),
+        )
+    ) or 0
+
+
 @router.get("", response_model=list[ArtistOut])
 def list_artists(db: Session = Depends(get_db)):
-    return list(db.scalars(select(Artist).order_by(Artist.name)).all())
+    artists = list(db.scalars(select(Artist).order_by(Artist.name)).all())
+    # Live work counts (active, non-exhibition) so the card never shows a stale 0.
+    rows = db.execute(
+        select(Artwork.artist_id, func.count())
+        .where(Artwork.status == "active", Artwork.exhibition_id.is_(None))
+        .group_by(Artwork.artist_id)
+    ).all()
+    counts = {aid: n for aid, n in rows}
+    for a in artists:
+        a.works_count = counts.get(a.id, 0)
+    return artists
 
 
 @router.get("/{artist_id}", response_model=ArtistOut)
@@ -238,6 +258,7 @@ def get_artist(artist_id: str, db: Session = Depends(get_db)):
     artist = db.get(Artist, artist_id)
     if not artist:
         raise HTTPException(status_code=404, detail="Artist not found")
+    artist.works_count = _live_count(db, artist_id)
     return artist
 
 
