@@ -10,3 +10,4 @@ python-multipart
 email-validator
 razorpay
 httpx
+slowapi

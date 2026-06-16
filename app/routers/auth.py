@@ -1,12 +1,13 @@
 """Authentication endpoints: register, login, refresh, logout, me."""
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user
+from ..ratelimit import limiter
 from ..models.user import User, Profile
 from ..schemas.auth import (
     RegisterIn, LoginIn, RefreshIn, TokenOut, MeOut, UserOut,
@@ -32,7 +33,8 @@ def _token_response(user: User) -> TokenOut:
 
 
 @router.post("/register", response_model=TokenOut, status_code=status.HTTP_201_CREATED)
-def register(body: RegisterIn, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def register(request: Request, body: RegisterIn, db: Session = Depends(get_db)):
     exists = db.scalar(select(User).where(User.email == body.email.lower()))
     if exists:
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -46,7 +48,8 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenOut)
-def login(body: LoginIn, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def login(request: Request, body: LoginIn, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.email == body.email.lower()))
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")

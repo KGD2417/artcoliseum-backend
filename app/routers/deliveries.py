@@ -15,7 +15,7 @@ from ..models.commerce import Order, OrderItem, Delivery, DeliveryEvent, Deliver
 from ..models.review import OwnedArtwork
 from ..schemas.commerce import DeliveryOut, StageUpdateIn, OtpConfirmIn
 from ..security import generate_otp
-from ..utils import pricing
+from ..utils import pricing, notify
 from ..websocket import manager
 
 router = APIRouter(prefix="/deliveries", tags=["deliveries"])
@@ -123,6 +123,15 @@ async def update_stage(delivery_id: uuid.UUID, body: StageUpdateIn, db: Session 
         {"type": "delivery", "order_id": str(d.order_id), "stage": d.stage},
         {str(order.user_id)} if order.user_id else set(),
     )
+    # Persistent bell notification for the buyer.
+    if order.user_id:
+        notify.create(
+            db, order.user_id, type="delivery",
+            title=f"Order update: {title}",
+            body=(body.detail or default_detail or ""),
+            link="/profile",
+        )
+        await notify.ping([order.user_id])
     return {"delivery": DeliveryOut.model_validate(_with_events(db, d)).model_dump(), "otp": otp_code}
 
 

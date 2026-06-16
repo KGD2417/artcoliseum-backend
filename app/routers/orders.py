@@ -16,7 +16,7 @@ from ..models.enquiry import BuyApproval
 from ..models.commerce import Cart, CartItem, Order, OrderItem, Delivery, DeliveryEvent
 from ..models.review import OwnedArtwork
 from ..schemas.commerce import OrderCreateIn, OrderOut, PaymentVerifyIn
-from ..utils import pricing, payments, shipping
+from ..utils import pricing, payments, shipping, notify
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -87,6 +87,22 @@ def _finalize_paid(db: Session, order: Order, *, payment_id: str, meta: dict) ->
         ))
     db.commit()
     db.refresh(order)
+
+    # Notify each artist whose work sold, and the admins, so they can fulfill.
+    for it in items:
+        artist = notify.artist_user_for_slug(db, it.artist_id)
+        if artist:
+            notify.create(
+                db, artist.id, type="order",
+                title=f'Your artwork "{it.title or "a piece"}" sold!',
+                body="Open your Orders to ship it to the buyer.",
+                link="/become-artist",
+            )
+    notify.create_many(
+        db, notify.admin_user_ids(db), type="order",
+        title="New paid order", body=f"Order #{str(order.id)[:8].upper()} was placed.",
+        link="/admin",
+    )
     return order
 
 

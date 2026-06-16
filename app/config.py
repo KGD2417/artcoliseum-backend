@@ -57,5 +57,18 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_IMAGE_MODEL: str = "gemini-2.5-flash-image"
 
+    # ── Email notifications (admin alerts: contact, support, enquiries) ────
+    # SMTP — works with Gmail (use an App Password) or any SMTP provider.
+    # Leave blank to disable; submissions still save + show in the dashboard.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""        # sender address; defaults to SMTP_USER
+    ADMIN_EMAIL: str = ""      # where alerts are sent; defaults to SMTP_USER
+
+    # Secret for the daily deadline-reminder cron (/notifications/cron/deadlines).
+    CRON_SECRET: str = ""
+
 
 settings = Settings()

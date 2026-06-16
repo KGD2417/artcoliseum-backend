@@ -22,6 +22,7 @@ from ..models.enquiry import Enquiry
 from ..models.review import Review, OwnedArtwork
 from ..schemas.extra import AdminArtistIn, AdminArtistOut
 from ..security import hash_password
+from ..utils import notify
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -314,6 +315,12 @@ def verify_artist(user_id: uuid.UUID, db: Session = Depends(get_db), _admin: Use
         prof.artist_status = "verified"
         prof.role = "artist"
     db.commit()
+    notify.create(
+        db, user_id, type="artist",
+        title="You're a verified Art Coliseum artist 🎉",
+        body="Your studio is open — upload artworks and start selling.",
+        link="/become-artist",
+    )
     return {"ok": True}
 
 
@@ -332,6 +339,12 @@ def reject_artist(user_id: uuid.UUID, body: dict | None = None, db: Session = De
         if prof.role == "artist":
             prof.role = "user"
     db.commit()
+    notify.create(
+        db, user_id, type="artist",
+        title="Update on your artist application",
+        body=(f"Not approved this time: {reason}" if reason else "Your application was not approved. You can revise and reapply."),
+        link="/become-artist",
+    )
     return {"ok": True}
 
 

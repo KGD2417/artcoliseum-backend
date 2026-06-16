@@ -1,11 +1,15 @@
 """Art Coliseum FastAPI backend — application entrypoint."""
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from .config import settings
+from .ratelimit import limiter
 from .database import Base, engine
 import uuid
 
@@ -16,7 +20,7 @@ from .routers import (
     auth, uploads, categories, artworks, artists, chat,
     enquiries, cart, orders, deliveries, reviews,
     competitions, community, events, support, admin, exhibitions,
-    testimonials, news, ai,
+    testimonials, news, ai, notifications,
 )
 from .database import SessionLocal
 from .models.user import User
@@ -112,6 +116,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Per-client rate limiting (abuse protection). 600/min global default, with
+# tighter caps on auth routes (see app/routers/auth.py).
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+
+# Baseline security headers on every response.
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "SAMEORIGIN"
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resp.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=()"
+    return resp
+
 # Serve uploaded files statically at /uploads/...
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
@@ -136,6 +157,7 @@ app.include_router(exhibitions.router)
 app.include_router(testimonials.router)
 app.include_router(news.router)
 app.include_router(ai.router)
+app.include_router(notifications.router)
 
 
 @app.get("/health", tags=["meta"])

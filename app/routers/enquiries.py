@@ -1,7 +1,7 @@
 """Enquiry → price reveal → approve gate."""
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,6 +13,7 @@ from ..models.enquiry import Enquiry, BuyApproval
 from ..models.chat import ChatMessage
 from ..schemas.commerce import EnquiryCreateIn, RevealPriceIn, EnquiryOut, GateOut
 from ..schemas.chat import ChatMessageOut
+from ..utils import email, notify
 from ..websocket import manager
 
 router = APIRouter(prefix="/enquiries", tags=["enquiries"])
@@ -33,7 +34,7 @@ async def _post_system_message(db: Session, user_id: uuid.UUID, key: str, text: 
 
 
 @router.post("", response_model=EnquiryOut, status_code=201)
-async def create_enquiry(body: EnquiryCreateIn, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
+async def create_enquiry(body: EnquiryCreateIn, bg: BackgroundTasks, db: Session = Depends(get_db), me: User = Depends(get_current_user)):
     art = db.get(Artwork, body.artwork_id)
     if not art:
         raise HTTPException(status_code=404, detail="Artwork not found")
@@ -54,7 +55,8 @@ async def create_enquiry(body: EnquiryCreateIn, db: Session = Depends(get_db), m
             Enquiry.status.notin_(["rejected", "closed"]),
         )
     )
-    if enq is None:
+    is_new = enq is None
+    if is_new:
         enq = Enquiry(user_id=me.id, artwork_id=body.artwork_id, conversation_key=key, status="open")
         db.add(enq)
     enq.selection = selection
@@ -71,6 +73,32 @@ async def create_enquiry(body: EnquiryCreateIn, db: Session = Depends(get_db), m
         db.refresh(msg)
         out = ChatMessageOut.model_validate(msg).model_dump()
         await manager.broadcast(out, {str(me.id)}, notify_admins=True)
+
+    # Email the admin on a fresh enquiry or a new note (in addition to the live
+    # in-app notification). No-op when SMTP isn't configured.
+    if is_new or note:
+        buyer = (me.profile.full_name if me.profile and me.profile.full_name else me.email)
+        admin_ids = notify.admin_user_ids(db)
+        notify.create_many(
+            db, admin_ids, type="enquiry",
+            title=f'New enquiry on "{art.title}"',
+            body=f"From {buyer}" + (f": {note[:80]}" if note else ""),
+            link="/admin",
+        )
+        await notify.ping(admin_ids)
+        bg.add_task(
+            email.notify_admin,
+            f"[Art Coliseum] Enquiry: {art.title}",
+            "\n".join([
+                f'New enquiry on "{art.title}"',
+                f"From: {buyer} ({me.email})",
+                f"Size: {selection.get('custom_width') or '—'} × {selection.get('custom_height') or '—'} {selection.get('custom_unit') or ''}".strip(),
+                f"Options: {selection.get('options') or '—'}",
+                "",
+                note or "(no message — buyer opened an enquiry)",
+            ]),
+            reply_to=me.email,
+        )
     return enq
 
 
