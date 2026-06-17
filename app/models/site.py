@@ -83,3 +83,10 @@ class Testimonial(Base):
     tag: Mapped[str | None] = mapped_column(String, nullable=True)     # small label above the name
     published: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)        # ascending display order
+
+
+class SiteSetting(Base):
+    """Key/value store for editable site content (e.g. the Privacy Policy)."""
+    __tablename__ = "site_settings"
+    key: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    value: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

@@ -8,7 +8,7 @@ from .commerce import (  # noqa: F401
 )
 from .review import Review, OwnedArtwork  # noqa: F401
 from .competition import ArtistKyc, Competition, CompetitionEntry, JuryVerdict  # noqa: F401
-from .site import Event, EventRegistration, ContactMessage, SupportTicket, Testimonial, NewsItem  # noqa: F401
+from .site import Event, EventRegistration, ContactMessage, SupportTicket, Testimonial, NewsItem, SiteSetting  # noqa: F401
 from .community import CommunityPost, PostComment, PostLike, ChatRoom, RoomMessage, Bid  # noqa: F401
 from .exhibition import Exhibition, ExhibitionSubmission  # noqa: F401
 from .notification import Notification  # noqa: F401
