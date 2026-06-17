@@ -36,3 +36,15 @@ def get_privacy(db: Session = Depends(get_db)):
 @router.put("/privacy")
 def set_privacy(body: dict, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
     return _set(db, "privacy", body)
+
+
+@router.get("/preservation")
+def get_preservation(db: Session = Depends(get_db)):
+    """Public: the homepage Preservation-section images ({images:[url,...]}).
+    Returns null when unset → the frontend shows its built-in defaults."""
+    return _get(db, "preservation")
+
+
+@router.put("/preservation")
+def set_preservation(body: dict, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    return _set(db, "preservation", body)
