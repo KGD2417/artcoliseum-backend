@@ -301,3 +301,19 @@ class OwnedOut(BaseModel):
     title: str | None = None
     image: str | None = None
     artist_name: str | None = None
+
+
+# ── Wishlist / Save for later ─────────────────────────────────────────────────
+class WishlistAddIn(BaseModel):
+    artwork_id: str
+
+
+class WishlistItemOut(BaseModel):
+    artwork_id: str
+    title: str | None = None
+    image: str | None = None
+    artist_name: str | None = None
+    price: float | None = None
+    customizable: bool = False
+    available: bool = True          # False once the piece is sold or taken offline
+    created_at: datetime

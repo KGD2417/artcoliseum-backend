@@ -85,6 +85,22 @@ def _finalize_paid(db: Session, order: Order, *, payment_id: str, meta: dict) ->
             user_id=order.user_id, artwork_id=it.artwork_id, order_id=order.id, kind="digital",
             digital_asset_url=(art.images[0] if art and art.images else None),
         ))
+
+    # Payment landed → now it's safe to empty the cart and consume the buy-approvals
+    # for the purchased pieces. (Done here, not at order creation, so a failed or
+    # cancelled payment leaves the cart intact for a retry.)
+    ordered_ids = {it.artwork_id for it in items if it.artwork_id}
+    cart = db.scalar(select(Cart).where(Cart.user_id == order.user_id))
+    if cart:
+        cart_items = db.scalars(select(CartItem).where(CartItem.cart_id == cart.id)).all()
+        for ci in cart_items:
+            if ci.artwork_id in ordered_ids:
+                if ci.approval_id:
+                    appr = db.get(BuyApproval, ci.approval_id)
+                    if appr:
+                        appr.consumed = True
+                db.delete(ci)
+
     db.commit()
     db.refresh(order)
 
@@ -160,12 +176,10 @@ def create_order(body: OrderCreateIn, db: Session = Depends(get_db), me: User = 
             "artwork_price": float(it.artwork_price), "transport_cost": float(it.transport_cost),
             "setup_cost": float(it.setup_cost), "fulfillment": it.fulfillment,
         })
-        # consume the approval + clear cart line
-        if it.approval_id:
-            appr = db.get(BuyApproval, it.approval_id)
-            if appr:
-                appr.consumed = True
-        db.delete(it)
+        # NOTE: the cart is intentionally NOT cleared here. The order is still
+        # unpaid (pending); if the buyer's payment fails or is cancelled their
+        # items must stay in the cart so they can retry. The cart is cleared and
+        # the buy-approvals consumed in _finalize_paid, only once payment lands.
     order.breakdown = breakdown
     db.commit()
     db.refresh(order)

@@ -20,7 +20,7 @@ from .routers import (
     auth, uploads, categories, artworks, artists, chat,
     enquiries, cart, orders, deliveries, reviews,
     competitions, community, events, support, admin, exhibitions,
-    testimonials, news, ai, notifications, site,
+    testimonials, news, ai, notifications, site, wishlist,
 )
 from .database import SessionLocal
 from .models.user import User
@@ -158,6 +158,7 @@ app.include_router(testimonials.router)
 app.include_router(news.router)
 app.include_router(ai.router)
 app.include_router(notifications.router)
+app.include_router(wishlist.router)
 app.include_router(site.router)
 
 
