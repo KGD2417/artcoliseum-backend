@@ -69,15 +69,44 @@ def _my_artist_slug(me: User) -> str:
 
 @router.get("/me/profile", response_model=ArtistOut)
 def my_artist_profile(db: Session = Depends(get_db), me: User = Depends(get_current_user)):
-    """The artist's public catalog profile (derived from KYC if not yet persisted)."""
+    """The artist's catalog profile, backfilled from their KYC application so a
+    freshly-verified (or previously partially-saved) artist never sees an empty
+    profile form. Their application details auto-fill here."""
+    kyc = db.scalar(select(ArtistKyc).where(ArtistKyc.user_id == me.id))
+    fallback_name = (me.profile.full_name if me.profile and me.profile.full_name else me.email.split("@")[0])
     artist = db.get(Artist, _my_artist_slug(me))
     if artist:
+        # Heal any gaps from the application data — never overwrite real edits.
+        changed = False
+
+        def _fill(attr, val):
+            nonlocal changed
+            cur = getattr(artist, attr)
+            blank = cur is None or (isinstance(cur, str) and not cur.strip())
+            if blank and val not in (None, ""):
+                setattr(artist, attr, val)
+                changed = True
+
+        if kyc:
+            _fill("name", kyc.name)
+            _fill("bio", kyc.about)
+            _fill("image_url", kyc.avatar_url)
+            _fill("location", kyc.location)
+            _fill("art_type", kyc.art_type)
+            _fill("age", kyc.age)
+            _fill("gender", kyc.gender)
+        if not (artist.name or "").strip():
+            artist.name = fallback_name
+            changed = True
+        if changed:
+            db.commit()
+            db.refresh(artist)
         return artist
-    kyc = db.scalar(select(ArtistKyc).where(ArtistKyc.user_id == me.id))
-    # Transient (not persisted) so empty profiles don't appear in the public listing.
+    # No persisted row yet — transient profile straight from KYC (not persisted so
+    # empty profiles don't appear in the public listing before they have works).
     return Artist(
         id=_my_artist_slug(me),
-        name=(kyc.name if kyc else (me.profile.full_name if me.profile and me.profile.full_name else me.email.split("@")[0])),
+        name=(kyc.name if kyc else fallback_name),
         role="Art Coliseum Artist",
         bio=(kyc.about if kyc else None), image_url=(kyc.avatar_url if kyc else None),
         location=(kyc.location if kyc else None), age=(kyc.age if kyc else None),
@@ -96,8 +125,13 @@ def update_my_artist_profile(body: dict, db: Session = Depends(get_db), me: User
         artist = Artist(id=slug, name=(me.profile.full_name or me.email.split("@")[0]), role="Art Coliseum Artist")
         db.add(artist)
     for field in ("name", "bio", "image_url", "location", "art_type", "age", "gender"):
-        if field in body and body[field] is not None:
-            setattr(artist, field, body[field])
+        if field not in body:
+            continue
+        val = body[field]
+        # Skip blanks so an untouched/empty field never wipes existing profile data.
+        if val is None or (isinstance(val, str) and not val.strip()):
+            continue
+        setattr(artist, field, val)
     # Mirror onto KYC so the admin list and onboarding data stay consistent.
     kyc = db.scalar(select(ArtistKyc).where(ArtistKyc.user_id == me.id))
     if kyc:
