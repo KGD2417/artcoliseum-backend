@@ -2,7 +2,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, and_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -50,7 +50,18 @@ def conversation(
 
 @router.get("/mine", response_model=list[ChatMessageOut])
 def mine(db: Session = Depends(get_db), me: User = Depends(get_current_user)):
-    stmt = select(ChatMessage).where(ChatMessage.user_id == me.id).order_by(ChatMessage.created_at)
+    # My own threads (user_id == me) PLUS peer DMs I take part in — peer messages
+    # the other artist authored are stored under their user_id, so without this
+    # branch a received DM would never show up in my inbox.
+    peer_mine = and_(
+        ChatMessage.conversation_key.like("peer:%"),
+        ChatMessage.conversation_key.contains(str(me.id)),
+    )
+    stmt = (
+        select(ChatMessage)
+        .where(or_(ChatMessage.user_id == me.id, peer_mine))
+        .order_by(ChatMessage.created_at)
+    )
     return list(db.scalars(stmt).all())
 
 
@@ -63,8 +74,21 @@ def admin_all(db: Session = Depends(get_db), me: User = Depends(get_current_user
 
 @router.get("/unread")
 def unread(db: Session = Depends(get_db), me: User = Depends(get_current_user)):
+    # Incoming messages = (a) messages in my own threads not sent by me, and
+    # (b) peer DMs I take part in that the OTHER artist authored (those are stored
+    # under their user_id with sender="me", so the normal rule would miss them).
+    peer_incoming = and_(
+        ChatMessage.conversation_key.like("peer:%"),
+        ChatMessage.conversation_key.contains(str(me.id)),
+        ChatMessage.user_id != me.id,
+    )
     msgs = db.scalars(
-        select(ChatMessage).where(ChatMessage.user_id == me.id, ChatMessage.sender != "me")
+        select(ChatMessage).where(
+            or_(
+                and_(ChatMessage.user_id == me.id, ChatMessage.sender != "me"),
+                peer_incoming,
+            )
+        )
     ).all()
     reads = db.scalars(select(ChatRead).where(ChatRead.user_id == me.id)).all()
     read_map = {r.conversation_key: r.last_read_at for r in reads}
