@@ -69,15 +69,24 @@ def create_subtype(body: SubtypeIn, db: Session = Depends(get_db), me: User = De
     parent = db.get(Category, body.parent_id)
     if not parent or parent.kind != "main":
         raise HTTPException(status_code=400, detail="parent_id must be an existing main medium")
-    cid = "".join(c if c.isalnum() else "-" for c in body.label.lower()).strip("-")
-    if db.get(Category, cid):
-        raise HTTPException(status_code=409, detail="That style already exists")
+    slug = "".join(c if c.isalnum() else "-" for c in body.label.lower()).strip("-")
+    if not slug:
+        raise HTTPException(status_code=400, detail="Enter a valid style name")
+    # Scope the id to the parent medium so the same style name can live under
+    # different mediums (e.g. "Black & White" under both Chinoiserie and Sketch).
+    cid = f"{parent.id}-{slug}"
+    existing = db.get(Category, cid)
+    if existing:
+        # Same style already exists under THIS medium — return it so the UI can
+        # just select it, instead of erroring out.
+        return existing
     cat = Category(
-        id=cid, label=body.label, parent_id=body.parent_id, kind="subtype",
+        id=cid, label=body.label.strip(), parent_id=body.parent_id, kind="subtype",
         image_url=body.image_url, description=body.description,
     )
     db.add(cat)
     db.commit()
+    db.refresh(cat)
     return cat
 
 
