@@ -135,6 +135,12 @@ async def security_headers(request: Request, call_next):
     resp.headers["X-Frame-Options"] = "SAMEORIGIN"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     resp.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=()"
+    # Uploaded images are public assets that get consumed cross-origin by WebGL
+    # (AR textures) and <canvas>, which require CORS even for GETs. Allow any
+    # origin to read them so the AR studio can use them as textures.
+    if request.url.path.startswith("/uploads/"):
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
     return resp
 
 # Serve uploaded files statically at /uploads/...
