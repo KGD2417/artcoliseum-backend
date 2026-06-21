@@ -103,6 +103,8 @@ class Artwork(Base):
         ForeignKey("exhibitions.id", ondelete="CASCADE"), nullable=True, index=True
     )
     featured: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Admin-curated "Launch of New Product" / New Arrivals showcase on the home page.
+    is_new_launch: Mapped[bool] = mapped_column(Boolean, default=False)
     in_stock: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Predefined sizes (each with its own price) for non-customizable works.

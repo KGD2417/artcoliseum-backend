@@ -50,6 +50,7 @@ def list_artworks(
     size: str | None = Query(None),
     artist_id: str | None = Query(None),
     featured: bool | None = Query(None),
+    new_launch: bool | None = Query(None),
     q: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
@@ -69,6 +70,8 @@ def list_artworks(
         stmt = stmt.where(Artwork.artist_id == artist_id)
     if featured is not None:
         stmt = stmt.where(Artwork.featured == featured)
+    if new_launch is not None:
+        stmt = stmt.where(Artwork.is_new_launch == new_launch)
     if q:
         like = f"%{q.lower()}%"
         stmt = stmt.where(
@@ -204,7 +207,7 @@ _ARTIST_EDITABLE = {
     "price_per_unit", "unit", "min_width", "max_width", "min_height", "max_height",
     "min_depth", "max_depth", "frame_options", "finish_options", "palette_options",
 }
-_ADMIN_ONLY = {"status", "featured", "rejection_reason"}
+_ADMIN_ONLY = {"status", "featured", "is_new_launch", "rejection_reason"}
 
 
 @router.patch("/{artwork_id}", response_model=ArtworkOut)

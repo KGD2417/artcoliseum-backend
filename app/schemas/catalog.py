@@ -95,6 +95,7 @@ class ArtworkOut(BaseModel):
     rejection_reason: str | None = None
     exhibition_id: uuid.UUID | None = None
     featured: bool = False
+    is_new_launch: bool = False
     in_stock: bool = True
     sizes: list[ArtworkSizeOut] = []
     frame_options:   list | None = None

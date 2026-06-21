@@ -20,7 +20,7 @@ from .routers import (
     auth, uploads, categories, artworks, artists, chat,
     enquiries, cart, orders, deliveries, reviews,
     competitions, community, events, support, admin, exhibitions,
-    testimonials, news, ai, notifications, site, wishlist,
+    testimonials, news, ai, notifications, site, wishlist, analytics,
 )
 from .database import SessionLocal
 from .models.user import User
@@ -51,6 +51,8 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE categories ADD COLUMN IF NOT EXISTS pioneers JSONB",
         # artworks.rejection_reason — feedback when an admin rejects a submission.
         "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS rejection_reason TEXT",
+        # artworks.is_new_launch — admin-curated "Launch of New Product" / New Arrivals.
+        "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS is_new_launch BOOLEAN DEFAULT FALSE",
         # artworks structured size (base_dimensions is the derived display string).
         "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS width NUMERIC(10,2)",
         "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS height NUMERIC(10,2)",
@@ -160,6 +162,7 @@ app.include_router(ai.router)
 app.include_router(notifications.router)
 app.include_router(wishlist.router)
 app.include_router(site.router)
+app.include_router(analytics.router)
 
 
 @app.get("/health", tags=["meta"])

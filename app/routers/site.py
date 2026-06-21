@@ -48,3 +48,16 @@ def get_preservation(db: Session = Depends(get_db)):
 @router.put("/preservation")
 def set_preservation(body: dict, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
     return _set(db, "preservation", body)
+
+
+@router.get("/art-of-season")
+def get_art_of_season(db: Session = Depends(get_db)):
+    """Public: the homepage "Art of Seasons" showcase, separately curated by the
+    admin ({items:[{image,title,link}]}). Returns null when unset → the frontend
+    falls back to featured artworks."""
+    return _get(db, "art_of_season")
+
+
+@router.put("/art-of-season")
+def set_art_of_season(body: dict, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    return _set(db, "art_of_season", body)

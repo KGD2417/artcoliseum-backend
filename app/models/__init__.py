@@ -13,9 +13,10 @@ from .site import Event, EventRegistration, ContactMessage, SupportTicket, Testi
 from .community import CommunityPost, PostComment, PostLike, ChatRoom, RoomMessage, Bid  # noqa: F401
 from .exhibition import Exhibition, ExhibitionSubmission  # noqa: F401
 from .notification import Notification  # noqa: F401
+from .analytics import Visit  # noqa: F401
 
 __all__ = [
-    "Notification",
+    "Notification", "Visit",
     "User", "Profile", "Category", "Artist", "Artwork", "ArtworkSize",
     "ChatMessage", "ChatRead", "Enquiry", "BuyApproval",
     "Cart", "CartItem", "Order", "OrderItem", "Delivery", "DeliveryEvent", "DeliveryOTP",
