@@ -53,6 +53,8 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS rejection_reason TEXT",
         # artworks.is_new_launch — admin-curated "Launch of New Product" / New Arrivals.
         "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS is_new_launch BOOLEAN DEFAULT FALSE",
+        # artworks.is_art_of_season — admin-curated "Art of Seasons" home showcase.
+        "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS is_art_of_season BOOLEAN DEFAULT FALSE",
         # artworks structured size (base_dimensions is the derived display string).
         "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS width NUMERIC(10,2)",
         "ALTER TABLE artworks ADD COLUMN IF NOT EXISTS height NUMERIC(10,2)",

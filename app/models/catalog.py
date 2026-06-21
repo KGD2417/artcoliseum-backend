@@ -105,6 +105,8 @@ class Artwork(Base):
     featured: Mapped[bool] = mapped_column(Boolean, default=False)
     # Admin-curated "Launch of New Product" / New Arrivals showcase on the home page.
     is_new_launch: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Admin-curated "Art of Seasons" showcase on the home page (existing artworks).
+    is_art_of_season: Mapped[bool] = mapped_column(Boolean, default=False)
     in_stock: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Predefined sizes (each with its own price) for non-customizable works.

@@ -96,6 +96,7 @@ class ArtworkOut(BaseModel):
     exhibition_id: uuid.UUID | None = None
     featured: bool = False
     is_new_launch: bool = False
+    is_art_of_season: bool = False
     in_stock: bool = True
     sizes: list[ArtworkSizeOut] = []
     frame_options:   list | None = None
