@@ -1,7 +1,7 @@
 """Schemas for artist onboarding, competitions, community, events, support, admin."""
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .catalog import CategoryTab
 
@@ -13,7 +13,7 @@ def _f(v):
 # ── Artist onboarding ────────────────────────────────────────────────────────
 class KycIn(BaseModel):
     name: str
-    age: int | None = None
+    age: int | None = Field(default=None, ge=16, le=100)
     art_type: str | None = None
     location: str | None = None
     about: str | None = None
@@ -125,7 +125,7 @@ class AdminArtistIn(BaseModel):
     bio: str | None = None
     location: str | None = None
     art_type: str | None = None
-    age: int | None = None
+    age: int | None = Field(default=None, ge=16, le=100)
     image_url: str | None = None
     gender: str | None = None
 

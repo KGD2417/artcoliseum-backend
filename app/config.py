@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TTL_MIN: int = 30
     REFRESH_TTL_DAYS: int = 14
+    # How long a password-reset link stays valid.
+    RESET_TTL_MIN: int = 30
 
     # Where uploaded files are written and served from (/uploads/...).
     # Local dev: a relative "uploads" folder is fine.

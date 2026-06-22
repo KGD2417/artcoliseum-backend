@@ -1,6 +1,6 @@
 """Pydantic request/response models for auth."""
 import uuid
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class RegisterIn(BaseModel):
@@ -17,6 +17,20 @@ class LoginIn(BaseModel):
 
 class RefreshIn(BaseModel):
     refresh: str
+
+
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    password: str = Field(min_length=6)
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6)
 
 
 class UserOut(BaseModel):

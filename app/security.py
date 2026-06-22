@@ -1,4 +1,5 @@
 """Password hashing (bcrypt), JWT encode/decode, and OTP generation."""
+import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -35,6 +36,25 @@ def create_access_token(sub: str) -> str:
 
 def create_refresh_token(sub: str) -> str:
     return _create_token(sub, "refresh", timedelta(days=settings.REFRESH_TTL_DAYS))
+
+
+def password_fingerprint(password_hash: str) -> str:
+    """Short, stable digest of a stored password hash. Embedded in reset tokens
+    so a token stops working the moment the password is (re)set — i.e. each link
+    is single-use without needing a DB table to track it."""
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
+
+
+def create_reset_token(sub: str, password_hash: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": sub,
+        "type": "reset",
+        "pwf": password_fingerprint(password_hash),
+        "iat": now,
+        "exp": now + timedelta(minutes=settings.RESET_TTL_MIN),
+    }
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
 def decode_token(token: str, expected_type: str | None = None) -> dict | None:

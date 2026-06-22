@@ -1,21 +1,25 @@
 """Authentication endpoints: register, login, refresh, logout, me."""
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..database import get_db
 from ..deps import get_current_user
 from ..ratelimit import limiter
 from ..models.user import User, Profile
 from ..schemas.auth import (
     RegisterIn, LoginIn, RefreshIn, TokenOut, MeOut, UserOut,
+    ForgotPasswordIn, ResetPasswordIn, ChangePasswordIn,
 )
 from ..security import (
     hash_password, verify_password,
     create_access_token, create_refresh_token, decode_token,
+    create_reset_token, password_fingerprint,
 )
+from ..utils.email import send_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -71,9 +75,71 @@ def refresh(body: RefreshIn, db: Session = Depends(get_db)):
     return _token_response(user)
 
 
+@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("5/minute")
+def forgot_password(
+    request: Request,
+    body: ForgotPasswordIn,
+    background: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    user = db.scalar(select(User).where(User.email == body.email.lower()))
+    if user:
+        token = create_reset_token(str(user.id), user.password_hash)
+        link = f"{settings.FRONTEND_ORIGIN}/reset-password?token={token}"
+        message = (
+            "We received a request to reset your Art Coliseum password.\n\n"
+            f"Use the link below to choose a new password (valid for {settings.RESET_TTL_MIN} minutes):\n\n"
+            f"{link}\n\n"
+            "If you didn't request this, you can safely ignore this email — your "
+            "password won't change."
+        )
+        # No-op when SMTP isn't configured; log the link so dev can still test.
+        if not send_email("Reset your Art Coliseum password", message, to=user.email):
+            print(f"[auth] password reset link for {user.email}: {link}")
+    # Always 202 — never reveal whether an account exists for this email.
+    return {"detail": "If an account exists for that email, a reset link has been sent."}
+
+
+@router.post("/reset-password", response_model=TokenOut)
+@limiter.limit("10/minute")
+def reset_password(request: Request, body: ResetPasswordIn, db: Session = Depends(get_db)):
+    invalid = HTTPException(status_code=400, detail="This reset link is invalid or has expired")
+    payload = decode_token(body.token, expected_type="reset")
+    if not payload:
+        raise invalid
+    try:
+        uid = uuid.UUID(payload["sub"])
+    except (KeyError, ValueError):
+        raise invalid
+    user = db.get(User, uid)
+    # The fingerprint binds the token to the password it was issued for, so a
+    # link can't be replayed once it's been used (or the password changed).
+    if not user or payload.get("pwf") != password_fingerprint(user.password_hash):
+        raise invalid
+
+    user.password_hash = hash_password(body.password)
+    db.commit()
+    db.refresh(user)
+    return _token_response(user)
+
+
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(_: User = Depends(get_current_user)):
     # Stateless JWT — client discards tokens. Endpoint exists for symmetry.
+    return None
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    body: ChangePasswordIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    user.password_hash = hash_password(body.new_password)
+    db.commit()
     return None
 
 
