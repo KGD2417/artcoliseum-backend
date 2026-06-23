@@ -3,6 +3,7 @@ import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -39,14 +40,22 @@ def _token_response(user: User) -> TokenOut:
 @router.post("/register", response_model=TokenOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("20/minute")
 def register(request: Request, body: RegisterIn, db: Session = Depends(get_db)):
-    exists = db.scalar(select(User).where(User.email == body.email.lower()))
-    if exists:
+    if db.scalar(select(User).where(User.email == body.email.lower())):
         raise HTTPException(status_code=409, detail="Email already registered")
 
+    phone = (body.phone or "").strip() or None
+    if phone and db.scalar(select(Profile).where(Profile.phone == phone)):
+        raise HTTPException(status_code=409, detail="Phone number already registered")
+
     user = User(email=body.email.lower(), password_hash=hash_password(body.password))
-    user.profile = Profile(full_name=body.full_name, phone=body.phone, role="user")
+    user.profile = Profile(full_name=body.full_name, phone=phone, role="user")
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Lost a race against a concurrent signup with the same email/phone.
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Email or phone number already registered")
     db.refresh(user)
     return _token_response(user)
 
@@ -150,7 +159,12 @@ def update_me(body: dict, db: Session = Depends(get_db), user: User = Depends(ge
         if "full_name" in body and body["full_name"] is not None:
             prof.full_name = body["full_name"]
         if "phone" in body and body["phone"] is not None:
-            prof.phone = body["phone"]
+            phone = str(body["phone"]).strip() or None
+            if phone and db.scalar(
+                select(Profile).where(Profile.phone == phone, Profile.user_id != user.id)
+            ):
+                raise HTTPException(status_code=409, detail="Phone number already registered")
+            prof.phone = phone
         if "avatar_url" in body and body["avatar_url"] is not None:
             prof.avatar_url = body["avatar_url"]
         if "addresses" in body and isinstance(body["addresses"], list):

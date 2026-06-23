@@ -97,6 +97,10 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS artist_tracking JSONB",
         # profiles.pickup_address — artist's ship-from origin for direct fulfillment.
         "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS pickup_address JSONB",
+        # profiles.phone — one account per phone number. Partial index ignores
+        # NULL/blank so accounts without a phone aren't forced to collide.
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_profiles_phone "
+        "ON profiles (phone) WHERE phone IS NOT NULL AND btrim(phone) <> ''",
     ]
     with engine.begin() as conn:
         for stmt in statements:
