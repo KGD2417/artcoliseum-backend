@@ -317,3 +317,18 @@ class WishlistItemOut(BaseModel):
     customizable: bool = False
     available: bool = True          # False once the piece is sold or taken offline
     created_at: datetime
+
+
+class SavedPostAddIn(BaseModel):
+    post_id: str
+
+
+class SavedListingOut(BaseModel):
+    """A saved community marketplace listing, shown in 'Saved for Later'."""
+    post_id: str
+    title: str | None = None
+    image: str | None = None
+    is_auction: bool = False
+    price: float | None = None      # current top bid, else starting bid, else None
+    available: bool = True          # False once the auction has closed
+    created_at: datetime

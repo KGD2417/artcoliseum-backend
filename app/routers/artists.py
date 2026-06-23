@@ -89,6 +89,7 @@ def my_artist_profile(db: Session = Depends(get_db), me: User = Depends(get_curr
 
         if kyc:
             _fill("name", kyc.name)
+            _fill("real_name", kyc.name)
             _fill("bio", kyc.about)
             _fill("image_url", kyc.avatar_url)
             _fill("location", kyc.location)
@@ -107,6 +108,7 @@ def my_artist_profile(db: Session = Depends(get_db), me: User = Depends(get_curr
     return Artist(
         id=_my_artist_slug(me),
         name=(kyc.name if kyc else fallback_name),
+        real_name=(kyc.name if kyc else fallback_name),
         role="Art Coliseum Artist",
         bio=(kyc.about if kyc else None), image_url=(kyc.avatar_url if kyc else None),
         location=(kyc.location if kyc else None), age=(kyc.age if kyc else None),
@@ -124,7 +126,7 @@ def update_my_artist_profile(body: dict, db: Session = Depends(get_db), me: User
     if not artist:
         artist = Artist(id=slug, name=(me.profile.full_name or me.email.split("@")[0]), role="Art Coliseum Artist")
         db.add(artist)
-    for field in ("name", "bio", "image_url", "location", "art_type", "age", "gender"):
+    for field in ("name", "real_name", "bio", "image_url", "location", "art_type", "age", "gender"):
         if field not in body:
             continue
         val = body[field]

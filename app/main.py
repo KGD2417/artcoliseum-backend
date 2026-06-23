@@ -97,6 +97,8 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS artist_tracking JSONB",
         # profiles.pickup_address — artist's ship-from origin for direct fulfillment.
         "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS pickup_address JSONB",
+        # artists.real_name — private legal name, kept separate from the public name.
+        "ALTER TABLE artists ADD COLUMN IF NOT EXISTS real_name VARCHAR",
         # profiles.phone — one account per phone number. Partial index ignores
         # NULL/blank so accounts without a phone aren't forced to collide.
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_profiles_phone "

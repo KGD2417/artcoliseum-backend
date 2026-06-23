@@ -33,7 +33,10 @@ class Artist(Base):
     __tablename__ = "artists"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)  # slug, e.g. "elena-vance"
-    name: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)   # public artist / display name
+    # Private legal name — never shown publicly; lets an artist use a stage name
+    # for `name` while keeping their real name on record.
+    real_name: Mapped[str | None] = mapped_column(String, nullable=True)
     role: Mapped[str | None] = mapped_column(String, nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String, nullable=True)

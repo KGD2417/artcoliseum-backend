@@ -49,6 +49,7 @@ class ArtistOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     name: str
+    real_name: str | None = None
     role: str | None = None
     bio: str | None = None
     image_url: str | None = None
