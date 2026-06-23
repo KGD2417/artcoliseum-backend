@@ -212,6 +212,7 @@ class PostOut(BaseModel):
     user_id: uuid.UUID
     community: str
     author: str | None = None
+    author_avatar: str | None = None    # post author's profile picture, if any
     type: str
     text: str | None = None
     images: list[str] = []

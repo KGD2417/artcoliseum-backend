@@ -180,6 +180,25 @@ def names(ids: str = Query(""), db: Session = Depends(get_db), me: User = Depend
     return out
 
 
+@router.get("/avatars")
+def avatars(ids: str = Query(""), db: Session = Depends(get_db), me: User = Depends(get_current_user)):
+    """Resolve a comma-separated list of user IDs to profile-picture URLs, so
+    direct-message threads can show the other person's photo."""
+    out: dict[str, str | None] = {}
+    for raw in (ids or "").split(","):
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            uid = uuid.UUID(raw)
+        except ValueError:
+            continue
+        prof = db.scalar(select(Profile.avatar_url).where(Profile.user_id == uid))
+        if prof:
+            out[str(uid)] = prof
+    return out
+
+
 @router.get("/peers", response_model=list[PeerOut])
 def peers(db: Session = Depends(get_db), me: User = Depends(get_current_user)):
     if not (me.profile and me.profile.role in ("artist", "admin")):

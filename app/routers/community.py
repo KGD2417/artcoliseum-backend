@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user, get_optional_user, require_role
-from ..models.user import User
+from ..models.user import User, Profile
 from ..models.community import Community, CommunityPost, PostComment, PostLike, ChatRoom, RoomMessage, Bid
 from ..schemas.extra import PostIn, CommentIn, PostOut, RoomMessageIn, CommunityIn, CommunityOut, BidIn
 
@@ -139,8 +139,13 @@ def _post_out(db: Session, p: CommunityPost, me_id) -> PostOut:
         if p.winner_user_id and rows:
             winner_name = next((b.bidder_name for b in rows if b.user_id == p.winner_user_id), rows[0].bidder_name)
 
+    author_avatar = db.scalar(
+        select(Profile.avatar_url).where(Profile.user_id == p.user_id)
+    )
+
     return PostOut(
-        id=p.id, user_id=p.user_id, community=p.community, author=p.author, type=p.type,
+        id=p.id, user_id=p.user_id, community=p.community, author=p.author,
+        author_avatar=author_avatar, type=p.type,
         text=p.text, images=p.images or [], video=p.video, videos=videos, title=p.title, condition=p.condition,
         location=p.location, created_at=p.created_at, likes=likes, liked=liked,
         comments=[{"author": c.author, "text": c.text} for c in comments],

@@ -110,6 +110,7 @@ def my_artist_profile(db: Session = Depends(get_db), me: User = Depends(get_curr
         name=(kyc.name if kyc else fallback_name),
         real_name=(kyc.name if kyc else fallback_name),
         role="Art Coliseum Artist",
+        works_count=0,  # transient instance: column default isn't applied pre-insert
         bio=(kyc.about if kyc else None), image_url=(kyc.avatar_url if kyc else None),
         location=(kyc.location if kyc else None), age=(kyc.age if kyc else None),
         art_type=(kyc.art_type if kyc else None), gender=(kyc.gender if kyc else None),
