@@ -59,15 +59,19 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_IMAGE_MODEL: str = "gemini-2.5-flash-image"
 
-    # ── Email notifications (admin alerts: contact, support, enquiries) ────
-    # SMTP — works with Gmail (use an App Password) or any SMTP provider.
-    # Leave blank to disable; submissions still save + show in the dashboard.
+    # ── Email notifications (admin alerts + password reset) ────────────────
+    # Two transports, in priority order:
+    #   1. Brevo HTTP API (BREVO_API_KEY) — sends over HTTPS, so it works on
+    #      hosts that block outbound SMTP (e.g. Railway). Preferred in prod.
+    #   2. SMTP — works with Gmail/Titan/any provider; fine for local dev.
+    # Leave both blank to disable; submissions still save + show in dashboard.
+    BREVO_API_KEY: str = ""    # Brevo (Sendinblue) transactional API key
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = ""        # sender address; defaults to SMTP_USER
-    ADMIN_EMAIL: str = ""      # where alerts are sent; defaults to SMTP_USER
+    ADMIN_EMAIL: str = ""      # where alerts are sent; defaults to SMTP_FROM/SMTP_USER
 
     # Secret for the daily deadline-reminder cron (/notifications/cron/deadlines).
     CRON_SECRET: str = ""
