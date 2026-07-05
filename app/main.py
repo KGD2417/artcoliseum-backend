@@ -118,6 +118,17 @@ app = FastAPI(title="Art Coliseum API", version="0.1.0")
 
 _origins_raw = [o.strip() for o in settings.FRONTEND_ORIGIN.split(",") if o.strip()]
 _wildcard = "*" in _origins_raw
+# Always allow the local Vite dev server (dev + preview ports, both host forms)
+# so a developer can run the frontend on their machine against the deployed
+# Railway backend without having to edit FRONTEND_ORIGIN on every redeploy.
+_local_dev_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
+]
+if not _wildcard:
+    _origins_raw.extend(o for o in _local_dev_origins if o not in _origins_raw)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if _wildcard else _origins_raw,
