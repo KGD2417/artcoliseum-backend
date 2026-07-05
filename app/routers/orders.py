@@ -150,9 +150,15 @@ def create_order(body: OrderCreateIn, db: Session = Depends(get_db), me: User = 
     delivery_fee = pricing.delivery_estimate(pincode)["delivery_fee"] if needs_transport else 0.0
     total = subtotal + transport + setup + tax + delivery_fee
 
+    # Optional GST invoice party — recorded only when a billing name is given.
+    raw_billing = body.billing_details if isinstance(body.billing_details, dict) else {}
+    billing = None
+    if (raw_billing.get("billing_name") or "").strip():
+        billing = {k: str(raw_billing.get(k) or "").strip() for k in ("billing_name", "billing_address", "pan", "gstin")}
+
     order = Order(
         user_id=me.id, email=me.email, full_name=body.full_name, phone=body.phone,
-        shipping_address=addr, subtotal=subtotal, tax=tax,
+        shipping_address=addr, billing_details=billing, subtotal=subtotal, tax=tax,
         delivery_fee=delivery_fee, total=total,
         status="pending", payment_provider=body.payment_provider, breakdown=[],
     )

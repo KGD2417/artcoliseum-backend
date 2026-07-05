@@ -134,6 +134,13 @@ def update_my_artist_profile(body: dict, db: Session = Depends(get_db), me: User
         # Skip blanks so an untouched/empty field never wipes existing profile data.
         if val is None or (isinstance(val, str) and not val.strip()):
             continue
+        if field == "age":
+            try:
+                val = int(val)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="Age must be a whole number")
+            if not 16 <= val <= 100:
+                raise HTTPException(status_code=400, detail="Age must be between 16 and 100")
         setattr(artist, field, val)
     # Mirror onto KYC so the admin list and onboarding data stay consistent.
     kyc = db.scalar(select(ArtistKyc).where(ArtistKyc.user_id == me.id))

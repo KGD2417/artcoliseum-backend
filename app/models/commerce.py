@@ -44,6 +44,8 @@ class Order(Base):
     full_name: Mapped[str | None] = mapped_column(String, nullable=True)
     phone: Mapped[str | None] = mapped_column(String, nullable=True)
     shipping_address: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # GST invoice / billing party: {billing_name, billing_address, pan, gstin}
+    billing_details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     tax: Mapped[float] = mapped_column(Numeric(12, 2), default=0)            # GST
     delivery_fee: Mapped[float] = mapped_column(Numeric(12, 2), default=0)   # zone fee

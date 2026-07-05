@@ -170,6 +170,12 @@ def update_me(body: dict, db: Session = Depends(get_db), user: User = Depends(ge
         if "addresses" in body and isinstance(body["addresses"], list):
             # Replace the saved address book; keep only well-formed dict entries.
             prof.addresses = [a for a in body["addresses"] if isinstance(a, dict)]
+        if "gst_profiles" in body and isinstance(body["gst_profiles"], list):
+            # Replace saved GST/billing profiles; keep only well-formed dict entries.
+            prof.gst_profiles = [g for g in body["gst_profiles"] if isinstance(g, dict)]
+        if "bank_details" in body:
+            bd = body["bank_details"]
+            prof.bank_details = bd if isinstance(bd, dict) else None
         db.commit()
         db.refresh(user)
     return _me_out(user, prof)
@@ -189,4 +195,6 @@ def _me_out(user: User, prof) -> MeOut:
         phone=prof.phone if prof else None,
         avatar_url=prof.avatar_url if prof else None,
         addresses=(prof.addresses or []) if prof else [],
+        gst_profiles=(prof.gst_profiles or []) if prof else [],
+        bank_details=(prof.bank_details or None) if prof else None,
     )

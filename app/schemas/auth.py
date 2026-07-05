@@ -46,6 +46,8 @@ class MeOut(BaseModel):
     phone: str | None = None
     avatar_url: str | None = None
     addresses: list | None = None
+    gst_profiles: list | None = None
+    bank_details: dict | None = None
 
 
 class TokenOut(BaseModel):

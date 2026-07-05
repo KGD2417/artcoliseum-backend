@@ -16,6 +16,7 @@ from ..models.competition import ArtistKyc
 from ..models.exhibition import Exhibition
 from ..schemas.catalog import ArtworkOut
 from ..schemas.exhibition import ExhibitionIn, ExhibitionUpdate, ExhibitionOut, ExhibitionArtworkIn
+from ..utils import notify
 
 router = APIRouter(prefix="/exhibitions", tags=["exhibitions"])
 
@@ -186,7 +187,7 @@ def list_exhibitions(db: Session = Depends(get_db), _admin: User = Depends(requi
 
 
 @router.post("", response_model=ExhibitionOut, status_code=201)
-def create_exhibition(body: ExhibitionIn, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+async def create_exhibition(body: ExhibitionIn, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
     if _active_exhibition(db):
         raise HTTPException(status_code=400, detail="An exhibition is already running — end it before starting another")
     ex = Exhibition(
@@ -196,6 +197,14 @@ def create_exhibition(body: ExhibitionIn, db: Session = Depends(get_db), _admin:
         registration_ends_at=body.registration_ends_at,
     )
     db.add(ex); db.commit(); db.refresh(ex)
+    artist_ids = notify.verified_artist_user_ids(db)
+    notify.create_many(
+        db, artist_ids, type="exhibition",
+        title=f'New exhibition announced: "{ex.title}"',
+        body="The Art Coliseum team has announced a new exhibition. Check the registration window and get your pieces ready.",
+        link="/exhibition",
+    )
+    await notify.ping(artist_ids)
     return _serialize(db, ex, with_artworks=False)
 
 
@@ -220,8 +229,20 @@ def _set_status(db: Session, exhibition_id: uuid.UUID, status: str) -> Exhibitio
 
 
 @router.post("/{exhibition_id}/open", response_model=ExhibitionOut)
-def open_registration(exhibition_id: uuid.UUID, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
-    return _serialize(db, _set_status(db, exhibition_id, "registration"), with_artworks=False)
+async def open_registration(exhibition_id: uuid.UUID, db: Session = Depends(get_db), _admin: User = Depends(require_role("admin"))):
+    ex = _set_status(db, exhibition_id, "registration")
+    artist_ids = notify.verified_artist_user_ids(db)
+    starts = ex.registration_starts_at
+    upcoming = starts and starts > datetime.now(timezone.utc)
+    notify.create_many(
+        db, artist_ids, type="exhibition",
+        title=f'Registration {"opens soon" if upcoming else "is open"}: "{ex.title}"',
+        body=("Registration for the new exhibition has been scheduled — check the opening time and get your pieces ready."
+              if upcoming else "Submit your pieces from your studio's Exhibition tab before registration closes."),
+        link="/exhibition",
+    )
+    await notify.ping(artist_ids)
+    return _serialize(db, ex, with_artworks=False)
 
 
 @router.post("/{exhibition_id}/go-live", response_model=ExhibitionOut)

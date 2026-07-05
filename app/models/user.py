@@ -33,6 +33,11 @@ class Profile(Base):
     # Artist ship-from / pickup address — origin for shipments of their own work.
     # {name,phone,line1,line2,city,state,zip,country,sr_nickname}
     pickup_address: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Saved GST / billing profiles for invoicing, reused at checkout:
+    # [{id, billing_name, billing_address, pan, gstin}]
+    gst_profiles: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # Bank payout details: {account_holder, bank_name, account_number, ifsc, cheque_url}
+    bank_details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # role: user | artist | admin
     role: Mapped[str] = mapped_column(String, default="user", nullable=False)

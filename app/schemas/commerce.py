@@ -127,6 +127,7 @@ class OrderCreateIn(BaseModel):
     full_name: str
     phone: str
     shipping_address: dict = {}   # may be empty for pure self-pickup orders
+    billing_details: dict | None = None   # optional GST/billing party for the invoice
     payment_provider: str = "razorpay"
     pincode: str | None = None   # falls back to shipping_address["zip"]
     pickup_date: str | None = None   # ISO date — self-pickup
@@ -162,6 +163,7 @@ class OrderOut(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     shipping_address: dict | None = None
+    billing_details: dict | None = None
     breakdown: list | None = None
     created_at: datetime
     items: list[OrderItemOut] = []
@@ -194,6 +196,14 @@ class PickupAddressIn(BaseModel):
     state: str
     zip: str
     country: str = "India"
+
+    @field_validator("zip")
+    @classmethod
+    def _valid_pin(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not (len(v) == 6 and v.isdigit()):
+            raise ValueError("Enter a valid 6-digit PIN code")
+        return v
 
 
 class DispatchIn(BaseModel):

@@ -97,6 +97,11 @@ def _run_lightweight_migrations() -> None:
         "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS artist_tracking JSONB",
         # profiles.pickup_address — artist's ship-from origin for direct fulfillment.
         "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS pickup_address JSONB",
+        # profiles.gst_profiles / bank_details — checkout GST invoicing + payout bank info.
+        "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS gst_profiles JSONB",
+        "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS bank_details JSONB",
+        # orders.billing_details — buyer's GST/billing party recorded on the invoice.
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS billing_details JSONB",
         # artists.real_name — private legal name, kept separate from the public name.
         "ALTER TABLE artists ADD COLUMN IF NOT EXISTS real_name VARCHAR",
         # profiles.phone — one account per phone number. Partial index ignores
